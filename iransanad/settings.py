@@ -51,7 +51,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'PROJECT_NAME.urls'
+ROOT_URLCONF = 'iransanad.urls'
 
 TEMPLATES = [
     {
@@ -69,7 +69,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'PROJECT_NAME.wsgi.application'
+WSGI_APPLICATION = 'iransanad.wsgi.application'
 
 
 DATABASES = {
@@ -112,11 +112,11 @@ USE_TZ = True
 
 STATIC_URL = f'api/v{VERSION}/static/'
 
-STATIC_ROOT = "/var/www/PROJECT_NAME/static"
+STATIC_ROOT = "/var/www/iransanad/static"
 
 MEDIA_URL = f'api/v{VERSION}/media/'
 
-MEDIA_ROOT = "/var/www/PROJECT_NAME/media"
+MEDIA_ROOT = "/var/www/iransanad/media"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
