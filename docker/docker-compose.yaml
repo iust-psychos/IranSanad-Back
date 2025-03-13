@@ -1,0 +1,42 @@
+version: '3.9'
+services:
+  backend:
+    build: 
+      context: ../backend
+      dockerfile: Dockerfile
+    command: ./backend-entrypoint.sh
+    ports:
+      - 8000:8000
+    environment:
+      - DEBUG=0
+
+    restart: always
+    volumes:
+      - ../backend:/app
+      - /var/www/iransanad:/var/www/iransanad
+    depends_on:
+      - db
+
+  db:
+      image: postgres:16
+
+      env_file:
+        - postgres/.env
+
+
+      restart: always
+
+      volumes:
+        - postgres_data:/var/lib/postgresql/data/
+        - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+      ports:
+        - "5432:5432"
+
+
+
+
+
+volumes:
+  postgres_data:
+  pg_data: 
