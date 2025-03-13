@@ -1,4 +1,4 @@
-# Template from the full service project template
+# IranSanad Backend 
 This project is configuration of django web app with django-rest-framework and django-rest-auth for user authentication. It also includes a docker-compose file for running the project in a containerized environment.
 and also have configurations for the following:
 - django
@@ -16,32 +16,14 @@ and also have configurations for the following:
     - gender
     > **Information:** You can customize the user model as per your requirements
 
-### How to use the template
-#### Backend
+### How to use this project
 - Clone the project
     > **Note:** You can clone the project using the following command:
     ```bash
-    git clone https://github.com/amirali-lll/django-backend-template.git
+    git clone https://github.com/iust-psychos/IranSanad-Back.git
     ```
 
-- Change the name of the project
-    > **Note:** For changing project name search the "project_name" and "PROJECT_NAME" in the project and replace it with your project name, also change the name of project_name directory to your project name
-    
-    > **information:** you can use the tools like vs-code search tool to search and replace the project name
-
-
-### How to run the project
-- Clone the project
-    > **Note:** You can clone the project using the following command:
-    ```bash
-    git clone https://github.com/amirali-lll/django-backend-template.git
-    ```
 #### Run backend
-- Change the directory
-    > **Note:** You can change the directory using the following command:
-    ```bash
-    cd django-backend-template/backend
-    ```
 - Create a virtual environment
     > **Note:** You can create a virtual environment using the following command:
     ```bash
@@ -67,6 +49,8 @@ and also have configurations for the following:
     DB_PORT=YOUR_DB_PORT
     DB_ENGINE=django.db.backends.postgresql_psycopg2 # You can change this as per your database this is for postgresql
     ```
+- Create a database
+    open your DBMS and create a database with the name you have provided in the `.env` file
 - Run the migrations
     > **Note:** You can run the migrations using the following command:
     ```bash
