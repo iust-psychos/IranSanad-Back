@@ -7,10 +7,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="STM API",
+      title="Iran Sanad API",
       default_version= f"v{settings.VERSION}",
-      description="The STM API is a RESTful API that provides web services for the STM project.",
-      terms_of_service="https://stm.fiust.ir",
+      description="Iran Sanad Is cloud-based software for managing documents and files",
+      terms_of_service="https://iransanad.fiust.ir",
       contact=openapi.Contact(email="amirali.dst.lll@gmail.com"),
       license=openapi.License(name="BSD License"),
       x={
