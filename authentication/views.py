@@ -66,3 +66,12 @@ class AuthenticationViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    #dashboard api,must be removed later
+    @action(detail=False, methods=['GET'])
+    def get_documents(self, request):
+        user = request.user
+        documents = Document.objects.filter(creator=user)
+        serializer = GetDocumentsSerializer(documents, many=True)
+        return Response(serializer.data)
+        

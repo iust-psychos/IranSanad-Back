@@ -50,3 +50,16 @@ class ProfileImage(models.Model):
 
     def __str__(self):
         return self.user.username
+
+#must be removed from here and be added to core later
+class Document(models.Model):
+    document_name=models.CharField(max_length=30)
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    date_created=models.DateTimeField(auto_now_add=True,blank=True,editable=False)
+    last_modified = models.DateTimeField(auto_now=True,blank=True)
+    last_visited= models.DateTimeField(auto_now=True,blank=True)
+    
+    def __str__(self):
+        return self.document_name
+
+    

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ProfileImage
+from .models import ProfileImage , Document
 import base64
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile
@@ -188,3 +188,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
+    
+class GetDocumentsSerializer(serializers.ModelSerializer):
+    creator = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Document
+        fields = ['document_name', 'creator', 'date_created', 'last_modified', 'last_visited']
