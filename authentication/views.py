@@ -86,7 +86,7 @@ class VerificationViewSet(GenericViewSet):
             return ForgetPasswordVerificationSerializer
         
         
-    @action(['POST'],False)
+    @action(methods=['POST'], detail=False)
     def verify_email(self,request):
         serializer = EmailVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -94,7 +94,7 @@ class VerificationViewSet(GenericViewSet):
         return Response({"message":"ایمیل تایید شد"})
     
     
-    @action(['POST'],False)
+    @action(methods=['POST'], detail=False)
     def resend(self,request):
         serializer = ResendEmailVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -107,7 +107,7 @@ class VerificationViewSet(GenericViewSet):
         return Response({"message":"ایمیل تایید مجددا ارسال شد"})
     
     
-    @action(['POST'],False)
+    @action(methods=['POST'], detail=False)
     def forget_password(self,request):
         # TODO: make security better
         serializer = ForgetPasswordSerializer(data=request.data)
@@ -121,7 +121,7 @@ class VerificationViewSet(GenericViewSet):
             return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({"message":"ایمیل تایید فراموشی رمز عبور ارسال شد"})
     
-    @action(['POST'],False)
+    @action(methods=['POST'], detail=False)
     def forget_password_verify(self,request):
         serializer = ForgetPasswordVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
