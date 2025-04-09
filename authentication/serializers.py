@@ -2,6 +2,7 @@ import base64
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from .models import *
 
