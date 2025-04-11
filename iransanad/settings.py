@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     # Third party apps
     'rest_framework',
     'drf_yasg',
@@ -39,7 +40,7 @@ INSTALLED_APPS = [
     'core',
     'authentication',
 ]
-
+ASGI_APPLICATION = 'iransanad.routing.application'
 MIDDLEWARE = [
     'core.middleware.corsheaders.CorsMiddlewareDjango',
     'django.middleware.security.SecurityMiddleware',
