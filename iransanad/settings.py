@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     # Third party apps
     'rest_framework',
     'drf_yasg',
@@ -40,6 +41,7 @@ INSTALLED_APPS = [
     'authentication',
     'document',
 ]
+
 
 MIDDLEWARE = [
     'core.middleware.corsheaders.CorsMiddlewareDjango',
@@ -109,6 +111,16 @@ TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
 
 USE_TZ = True
+
+# Channels
+
+ASGI_APPLICATION = 'iransanad.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 
 STATIC_URL = f'api/v{VERSION}/static/'

@@ -9,4 +9,4 @@ python manage.py migrate
 
 # Start server
 echo "Starting server"
-gunicorn --bind 0.0.0.0:8000 iransanad.wsgi:application
+uvicorn iransanad.asgi:application --host 0.0.0.0 --port 8000
