@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'authentication',
     'document',
 ]
-ASGI_APPLICATION = 'iransanad.routing.application'
+
+
 MIDDLEWARE = [
     'core.middleware.corsheaders.CorsMiddlewareDjango',
     'django.middleware.security.SecurityMiddleware',
@@ -110,6 +111,16 @@ TIME_ZONE = 'Asia/Tehran'
 USE_I18N = True
 
 USE_TZ = True
+
+# Channels
+
+ASGI_APPLICATION = 'iransanad.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 
 STATIC_URL = f'api/v{VERSION}/static/'
