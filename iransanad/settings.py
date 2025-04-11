@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # Local apps
     'core',
     'authentication',
+    'document',
 ]
 ASGI_APPLICATION = 'iransanad.routing.application'
 MIDDLEWARE = [
