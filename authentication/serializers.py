@@ -67,7 +67,8 @@ class LoginSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         style={'input_type': 'password'},
-        write_only=True
+        write_only=True,
+        validators=[validate_password]
     )
     password2 = serializers.CharField(
         style={'input_type': 'password'},
@@ -166,7 +167,8 @@ class ChangePasswordSerializer(serializers.Serializer):
     )
     new_password = serializers.CharField(
         style={'input_type': 'password'},
-        write_only=True
+        write_only=True,
+        validators=[validate_password]
     )
     new_password2 = serializers.CharField(
         style={'input_type': 'password'},
