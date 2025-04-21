@@ -145,12 +145,17 @@ class UploadBase64ProfileImageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = validated_data['user']
-        profile_image = validated_data['profile_image']
-        format, imgstr = profile_image.split(';base64,')
+        profile_image_data = validated_data['profile_image']
+        format, imgstr = profile_image_data.split(';base64,')
         ext = format.split('/')[-1]
         data = ContentFile(base64.b64decode(imgstr))
         image = InMemoryUploadedFile(data, 'image', f"{user.username}.{ext}", 'image/jpeg', data.__sizeof__, None)
-        profile_image = ProfileImage.objects.create(user=user, image=image)
+
+        # Check if the user already has a profile image
+        profile_image, created = ProfileImage.objects.update_or_create(
+            user=user,
+            defaults={'image': image}
+        )
         return profile_image
 
 
