@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 import base64
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -6,40 +7,39 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from .models import *
 
-
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email', 'phone_number','first_name', 'last_name', 'is_staff', 'is_active', 'is_superuser', 'date_joined']
+        fields = ['username', 'email', 'phone_number', 'first_name', 'last_name', 'is_staff', 'is_active', 'is_superuser', 'date_joined']
 
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=False)
-    email    = serializers.EmailField(required=False)
-    password = serializers.CharField( 
+    email = serializers.EmailField(required=False)
+    password = serializers.CharField(
         style={'input_type': 'password'},
         trim_whitespace=False
     )
 
     def validate(self, attrs):
         username = attrs.get('username')
-        email    = attrs.get('email')
+        email = attrs.get('email')
         password = attrs.get('password')
 
         if not email and not username:
             raise serializers.ValidationError(
-                'حداقل یکی از فیلدهای username یا email باید پر شود'
+                _('At least one of the fields "username" or "email" must be filled.')
             )
-        
+
         if email and username:
             raise serializers.ValidationError(
-                'فیلدهای username و email نمیتوانند همزمان پر شوند'
+                _('The fields "username" and "email" cannot be filled simultaneously.')
             )
-        
-        user = None 
+
+        user = None
 
         if email:
             user = User.objects.filter(email=email).first()
@@ -47,16 +47,15 @@ class LoginSerializer(serializers.Serializer):
             user = User.objects.filter(username=username).first()
         if user is None:
             raise serializers.ValidationError(
-                'کاربری با این مشخصات یافت نشد'
+                _('No user found with the provided credentials.')
             )
         if not user.check_password(password):
             raise serializers.ValidationError(
-                'رمز عبور اشتباه است'
+                _('The password is incorrect.')
             )
         attrs['user'] = user
         attrs['tokens'] = user.tokens()
         return attrs
-    
 
     def to_representation(self, instance):
         return {
@@ -74,29 +73,29 @@ class RegisterSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'},
         write_only=True
     )
+
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password2', 'phone_number']
-    
+
     def validate(self, attrs):
         password = attrs.get('password')
         password2 = attrs.pop('password2')
         if password != password2:
             raise serializers.ValidationError(
-                'رمز عبور و تکرار آن یکسان نیستند'
+                _('The password and its confirmation do not match.')
             )
         return attrs
-    
+
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
-    
+
     def to_representation(self, instance):
         return {
             **UserSerializer(instance).data,
             'tokens': instance.tokens()
         }
-
 
 
 class UserInfoSerilizer(serializers.ModelSerializer):
@@ -130,7 +129,6 @@ class UserInfoSerilizer(serializers.ModelSerializer):
 
     def get_profile_image(self, user):
         return user.profile_image()
-    
 
 
 class UploadBase64ProfileImageSerializer(serializers.ModelSerializer):
@@ -143,7 +141,7 @@ class UploadBase64ProfileImageSerializer(serializers.ModelSerializer):
     def validate_profile_image(self, value):
         if value.startswith("data:image"):
             return value
-        raise serializers.ValidationError("فرمت تصویر باید base64 باشد")
+        raise serializers.ValidationError(_("The image format must be base64."))
 
     def create(self, validated_data):
         user = validated_data['user']
@@ -154,7 +152,7 @@ class UploadBase64ProfileImageSerializer(serializers.ModelSerializer):
         image = InMemoryUploadedFile(data, 'image', f"{user.username}.{ext}", 'image/jpeg', data.__sizeof__, None)
         profile_image = ProfileImage.objects.create(user=user, image=image)
         return profile_image
-    
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(
@@ -176,89 +174,87 @@ class ChangePasswordSerializer(serializers.Serializer):
         new_password2 = attrs.get('new_password2')
         if new_password != new_password2:
             raise serializers.ValidationError(
-                'The new password and the new password confirmation do not match.'
+                _('The new password and its confirmation do not match.')
             )
-        print(self.context)
         user = self.context['user']
         if not user.check_password(old_password):
             raise serializers.ValidationError(
-                'The old password is incorrect.'
+                _('The old password is incorrect.')
             )
         return attrs
-    
+
     def save(self):
         user = self.context['user']
         user.set_password(self.validated_data['new_password'])
         user.save()
         return user
-    
-    
-    
+
 
 class EmailVerificationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
-    
+
     def validate(self, attrs):
-        user = User.objects.get(email=attrs['email'])
-        verification = EmailVerification.objects.get(user=user)
+        user = User.objects.filter(email=attrs['email']).first()
+        verification = EmailVerification.objects.filter(user=user).first()
         if not user or not verification:
-            raise serializers.ValidationError({"email":"ایمیل وارد شده معتبر نیست"})
+            raise serializers.ValidationError({"email": _("The provided email is invalid.")})
         if verification.is_expired():
-            raise serializers.ValidationError({"code":"کد اعتبار سنجی منقضی شده است"})
+            raise serializers.ValidationError({"code": _("The verification code has expired.")})
         if not verification.is_valid(attrs['code']):
-            raise serializers.ValidationError({"code":"کد اعتبار سنجی وارد شده صحیح نیست"})
+            raise serializers.ValidationError({"code": _("The verification code is incorrect.")})
         return super().validate(attrs)
-    
+
     def save(self, **kwargs):
         user = User.objects.get(email=self.validated_data['email'])
         user.is_verified = True
         user.save()
         return user
-    
-    
 
 
 class ResendEmailVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    
+
     def validate(self, attrs):
-        user = User.objects.get(email=attrs['email'])
+        user = User.objects.filter(email=attrs['email']).first()
         if not user:
-            raise serializers.ValidationError({"email":"ایمیل وارد شده معتبر نیست"})
+            raise serializers.ValidationError({"email": _("The provided email is invalid.")})
         if not EmailVerification.objects.filter(user=user).exists():
-            raise serializers.ValidationError({"email":"ایمیل وارد شده معتبر نیست"})
+            raise serializers.ValidationError({"email": _("The provided email is invalid.")})
         if user.is_verified:
-            raise serializers.ValidationError({"email":"ایمیل وارد شده قبلا تایید شده است"})
+            raise serializers.ValidationError({"email": _("The provided email has already been verified.")})
         return super().validate(attrs)
-    
-    
+
+
 class ForgetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    
+
     def validate(self, attrs):
-        user = User.objects.get(email=attrs['email'])
+        user = User.objects.filter(email=attrs['email']).first()
         if not user:
-            raise serializers.ValidationError({"email":"ایمیل وارد شده معتبر نیست"})
+            raise serializers.ValidationError({"email": _("The provided email is invalid.")})
         return super().validate(attrs)
-    
+
+
 class ForgetPasswordVerificationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
     new_password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     new_password2 = serializers.CharField(write_only=True, required=True)
-    
+
     def validate(self, attrs):
-        user = User.objects.get(email=attrs['email'])
-        verification = ForgetPasswordVerification.objects.get(user=user)
+        user = User.objects.filter(email=attrs['email']).first()
+        verification = ForgetPasswordVerification.objects.filter(user=user).first()
         if not user or not verification:
-            raise serializers.ValidationError({"email":"ایمیل وارد شده معتبر نیست"})
+            raise serializers.ValidationError({"email": _("The provided email is invalid.")})
         if verification.is_expired():
-            raise serializers.ValidationError({"code":"کد اعتبار سنجی منقضی شده است"})
+            raise serializers.ValidationError({"code": _("The verification code has expired.")})
         if not verification.is_valid(attrs['code']):
-            raise serializers.ValidationError({"code":"کد اعتبار سنجی وارد شده صحیح نیست"})
+            raise serializers.ValidationError({"code": _("The verification code is incorrect.")})
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({"new_password2": _("The new password and its confirmation do not match.")})
         return super().validate(attrs)
-    
+
     def save(self, **kwargs):
         user = User.objects.get(email=self.validated_data['email'])
         user.set_password(self.validated_data['new_password'])

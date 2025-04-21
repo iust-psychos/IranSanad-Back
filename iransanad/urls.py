@@ -10,7 +10,7 @@ BASE_URL = settings.BASE_URL
 
 urlpatterns = [
     path(f'{BASE_URL}/swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path(f'{BASE_URL}/nbt-admin', admin.site.urls),
+    path(f'{BASE_URL}/nbt-admin/', admin.site.urls),
     path(f'{BASE_URL}/auth/',include('authentication.urls')),
     path(f'{BASE_URL}/docs/',include('document.urls')),
     path(f'{BASE_URL}/',include('core.urls')),
