@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 
 class Document(models.Model):
@@ -7,6 +8,9 @@ class Document(models.Model):
     content = models.BinaryField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    doc_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    is_public = models.BooleanField(default=False)
+    
     
     def __str__(self):
         return self.title
