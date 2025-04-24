@@ -1,10 +1,13 @@
 import json
 import logging
+import django
+django.setup()
+from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from y_py import YDoc, apply_update, encode_state_as_update
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
-from .models import Document, DocumentUpdate
+from .models import Document, DocumentUpdate, DocumentView
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +15,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Check if the document UUID is valid
         self.doc_uuid = self.scope['url_route']['kwargs'].get('doc_uuid')
+        self.user = self.scope['user']
         if not self.doc_uuid:
             logger.error("Invalid document UUID.")
             await self.close()
@@ -22,9 +26,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             logger.error(f"Document with UUID {self.doc_uuid} does not exist.")
             await self.close()
             return        
-        self.doc_uuid = self.scope['url_route']['kwargs']['doc_uuid']
         self.room_group_name = f'document_{self.doc_uuid}'
-
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
@@ -34,9 +36,28 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         if self.document.content:
             await self.send(bytes_data=bytes(self.document.content))
         logger.info(f"WebSocket connection established for document {self.doc_uuid} from {self.channel_name}")
+        self.last_seen = await DocumentView.objects.acreate(
+            document=self.document,
+            user=self.user
+        )
+        logger.info(f"Document viewed by user: {self.user} for document {self.document.doc_uuid}")
+
+        
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        # update the last seen time for the user by self.last_seen
+        if self.last_seen:
+            self.last_seen.created_at = timezone.now()
+            await sync_to_async(self.last_seen.save)()
+        else:
+            logger.error(f"DocumentView object not found for user {self.user} and document {self.document.doc_uuid}")
+            await DocumentView.objects.acreate(
+                document=self.document,
+                user=self.user
+            )
+
+        
 
     async def receive(self, text_data=None, bytes_data=None):
         # check if data is ypy support or not
