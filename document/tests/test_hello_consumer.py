@@ -5,9 +5,12 @@ from iransanad.consumer import HelloWorldConsumer
 from iransanad.asgi import application
 from django.test import override_settings
 
+
 @pytest.mark.asyncio
-async def test_hello_world_consumer():
-    communicator = WebsocketCommunicator(application, "/ws/helloworld/")
+@pytest.mark.django_db(transaction=True)
+async def test_hello_world_consumer(user_token_tuple):
+    user, token = user_token_tuple
+    communicator = WebsocketCommunicator(application, f"/ws/helloworld/?Authorization={token}")
     connected, _ = await communicator.connect()
     assert connected
     # Initial message assertion
