@@ -55,6 +55,7 @@ class TestDocumentConsumer(TransactionTestCase):
 
         # Receive update on client 2
         response = await communicator_2.receive_from()
+        assert isinstance(response, bytes), "Binary frame payload is not bytes"
         self.assertEqual(response, yjs_bytes)
         
         # Confirm client 1 does not receive its own update
@@ -99,7 +100,6 @@ class TestDocumentConsumer(TransactionTestCase):
         except asyncio.TimeoutError:
             pass
 
-        # Receive update on client 3
         response = await communicator_3.receive_from()
         self.assertEqual(response, yjs_bytes)
 
@@ -119,6 +119,120 @@ class TestDocumentConsumer(TransactionTestCase):
         document = await Document.objects.aget(doc_uuid=doc.doc_uuid)
         
         self.assertEqual(bytes(document.content), yjs_bytes)
+
         
     
+    async def test_reconnect_and_receive_initial_content(self):
+        doc = await Document.objects.acreate()
+        communicator_1 = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator_1.connect()
+        self.assertTrue(connected)
+        
+        yjs_bytes = get_yjs_update_bytes("Test content")
+        await communicator_1.send_to(bytes_data=yjs_bytes)
+
+        # Wait for the update to be processed
+        await asyncio.sleep(1)
+
+        # Disconnect the first client
+        await communicator_1.disconnect()
+    
+        await asyncio.sleep(1)
+        # Reconnect the first client
+        communicator_2 = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator_2.connect()
+        self.assertTrue(connected)
+        
+        # Receive initial content
+        try:
+            response = await communicator_2.receive_from()
+        except asyncio.TimeoutError:
+            self.fail("No content received after reconnecting.")
+        self.assertEqual(response, yjs_bytes)
+        
+        
+    async def test_send_non_yjs_update(self):
+        doc = await Document.objects.acreate()
+        communicator = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+
+        # Send non-Yjs update
+        await communicator.send_to(text_data="Non-Yjs update")
+
+        # Receive response
+        try:
+            response = await communicator.receive_from(timeout=0.1)
+            self.fail("Client should not receive a response for non-Yjs update.")
+        except asyncio.TimeoutError:
+            pass
+        
+        
+    async def test_send_empty_update(self):
+        doc = await Document.objects.acreate()
+        communicator = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+
+        try:
+            response =  await communicator.send_to(bytes_data=b"")
+            self.fail("Client should not receive a response for empty update.")
+        except (asyncio.TimeoutError, AssertionError):
+            pass
+        
+        
+    async def test_if_add_data_then_reconnect_broadcast_to_2_clients(self):
+        doc = await Document.objects.acreate()
+        communicator_1 = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator_1.connect()
+        self.assertTrue(connected)
+        
+        yjs_bytes = get_yjs_update_bytes("Test content")
+        await communicator_1.send_to(bytes_data=yjs_bytes)
+
+        # Disconnect the first client
+        await communicator_1.disconnect()
+    
+        # Reconnect the first client
+        communicator_1 = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected, _ = await communicator_1.connect()
+        self.assertTrue(connected)
+        
+        # Receive initial content
+        try:
+            response = await communicator_1.receive_from()
+            self.assertEqual(response, yjs_bytes)
+        except asyncio.TimeoutError:
+            self.fail("No content received after reconnecting.")
+        
+        # Connect client 2
+        communicator_2 = WebsocketCommunicator(application, f"/ws/docs/{doc.doc_uuid}/")
+        connected_2, _ = await communicator_2.connect()
+        self.assertTrue(connected_2)
+        
+        # Receive update on client 2
+        try:
+            response = await communicator_2.receive_from()
+            self.assertEqual(response, yjs_bytes)
+        except asyncio.TimeoutError:
+            self.fail("No content received after reconnecting.")
+            
+        # client 1 make new update
+        yjs_bytes = get_yjs_update_bytes("Test content")
+        await communicator_1.send_to(bytes_data=yjs_bytes)
+        
+        # Receive update on client 2
+        try:
+            response = await communicator_2.receive_from()
+            self.assertEqual(response, yjs_bytes)
+        except asyncio.TimeoutError:
+            self.fail("No content received after reconnecting.")
+
+        try:
+            response = await communicator_1.receive_from()
+            self.fail("Client 1 should not receive its own update.")
+        except asyncio.TimeoutError:
+            pass
+        await communicator_1.disconnect()
+        await communicator_2.disconnect()
         

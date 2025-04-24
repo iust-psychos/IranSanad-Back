@@ -27,13 +27,21 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
+
+        # send content of document to client
+        # log the content of the document
+        logger.info(f"Document content: {bytes(self.document.content)}")
+        if self.document.content:
+            await self.send(bytes_data=bytes(self.document.content))
         logger.info(f"WebSocket connection established for document {self.doc_uuid} from {self.channel_name}")
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data=None, bytes_data=None):
-        if not bytes_data:
+        # check if data is ypy support or not
+        if bytes_data is None:
+            logger.error("Received non-Yjs update.")
             return  # Ignore non-Yjs updates
 
         # Broadcast to all clients except sender
@@ -58,18 +66,18 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def apply_update_to_doc(self, doc_uuid, update_bytes):
         try:
-            print(f"Applying update to document {doc_uuid}")
-            print(f"Update bytes: {update_bytes}")
+            logger.info(f"Applying update to document {doc_uuid}")
+            logger.info(f"Update bytes: {update_bytes}")
             document = Document.objects.get(doc_uuid=doc_uuid)
 
             ydoc = YDoc()
             if document.content:
                 apply_update(ydoc, document.content)
-            print(f"Applying update to YDoc: {ydoc}")
+            logger.info(f"Applying update to YDoc: {ydoc}")
             apply_update(ydoc, update_bytes)
-            print(f"YDoc after applying update: {ydoc}")
+            logger.info(f"YDoc after applying update: {ydoc}")
             DocumentUpdate.objects.create(document=document, update_data=update_bytes)
-            print(f"Encoded state as update: {encode_state_as_update(ydoc)}")
+            logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
             document.content = encode_state_as_update(ydoc)
             document.save()
             logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
