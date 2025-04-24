@@ -10,6 +10,18 @@ logger = logging.getLogger(__name__)
 
 class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        # Check if the document UUID is valid
+        self.doc_uuid = self.scope['url_route']['kwargs'].get('doc_uuid')
+        if not self.doc_uuid:
+            logger.error("Invalid document UUID.")
+            await self.close()
+            return
+        try:
+            self.document = await Document.objects.aget(doc_uuid=self.doc_uuid)
+        except Document.DoesNotExist:
+            logger.error(f"Document with UUID {self.doc_uuid} does not exist.")
+            await self.close()
+            return        
         self.doc_uuid = self.scope['url_route']['kwargs']['doc_uuid']
         self.room_group_name = f'document_{self.doc_uuid}'
 
@@ -46,18 +58,21 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def apply_update_to_doc(self, doc_uuid, update_bytes):
         try:
+            print(f"Applying update to document {doc_uuid}")
+            print(f"Update bytes: {update_bytes}")
             document = Document.objects.get(doc_uuid=doc_uuid)
 
             ydoc = YDoc()
             if document.content:
                 apply_update(ydoc, document.content)
-
+            print(f"Applying update to YDoc: {ydoc}")
             apply_update(ydoc, update_bytes)
-
+            print(f"YDoc after applying update: {ydoc}")
             DocumentUpdate.objects.create(document=document, update_data=update_bytes)
-
+            print(f"Encoded state as update: {encode_state_as_update(ydoc)}")
             document.content = encode_state_as_update(ydoc)
             document.save()
+            logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
         except ObjectDoesNotExist:
             logger.error(f"Document with UUID {doc_uuid} does not exist.")
         except Exception as e:
