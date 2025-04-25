@@ -8,6 +8,7 @@ services:
     ports:
       - 8000:8000
     environment:
+      - DJANGO_SETTINGS_MODULE=iransanad.settings
       - DEBUG=0
 
     restart: always

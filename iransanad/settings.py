@@ -113,10 +113,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-from django.utils.translation import gettext_lazy as _
-
-
-# Channels
 
 ASGI_APPLICATION = 'iransanad.asgi.application'
 
