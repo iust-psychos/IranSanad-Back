@@ -270,31 +270,24 @@ class ForgetPasswordVerificationSerializer(serializers.Serializer):
         
         return user
 class UserLookupSerializer(serializers.Serializer):
-    username = serializers.CharField(
-        required=False,
-        help_text="Enter username (optional if email is provided)")
-    email= serializers.EmailField(
-        required=True,
-        help_text="Enter username (optional if username is provided)")
-
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
     user_id = serializers.IntegerField(read_only=True)
     
     def validate(self, attrs):
-        if not any([attrs.get('username'), attrs.get('email_address')]):
+        if not any([attrs.get('username'), attrs.get('email')]):
             raise serializers.ValidationError("باید نام کاربری یا آدرس ایمیل ارائه شود")
         
-        
         if attrs.get('username',None):
-            user = User.objects.filter(username=attrs.username).first()
+            user = User.objects.filter(username=attrs['username']).first()
         elif attrs.get('email',None):
-            user = User.objects.filter(email=attrs.email).first()
+            user = User.objects.filter(email=attrs['email']).first()
         else:
-            user = None
-            
+            user = None    
         if not user:
             raise NotFound("کاربر یافت نشد")
         
-        attrs.user = user
+        attrs['user'] = user
         return attrs
 
     def to_representation(self, instance):
