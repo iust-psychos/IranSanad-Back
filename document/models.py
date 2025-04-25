@@ -3,6 +3,13 @@ import uuid
 
 
 class Document(models.Model):
+    ACCESS_LEVELS = {
+        4: "Owner",
+        3: "Admin",
+        2: "Writer",
+        1: "Read_Only",
+        0: "Deny",
+    }
     title = models.CharField(max_length=255, default="سند بدون عنوان")
     link = models.CharField(max_length=15,unique=True,blank=True)
     owner = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True)
@@ -11,7 +18,9 @@ class Document(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     doc_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     is_public = models.BooleanField(default=False)
-    
+    default_access_level = models.PositiveSmallIntegerField(
+        choices=ACCESS_LEVELS, default=2
+    )
     
     def __str__(self):
         return self.title
@@ -41,3 +50,26 @@ class DocumentUpdate(models.Model):
 
     def __str__(self):
         return f"Update for {self.document.title} at {self.created_at}"
+
+    def __str__(self):
+        return self.title
+
+
+class AccessLevel(models.Model):
+    ACCESS_LEVELS = {
+        4: "Owner",
+        3: "Admin",
+        2: "Writer",
+        1: "ReadOnly",
+        0: "Deny",
+    }
+
+    user = models.ForeignKey("authentication.User", on_delete=models.CASCADE)
+    document = models.ForeignKey(Document, on_delete=models.CASCADE)
+    access_level = models.PositiveSmallIntegerField(choices=ACCESS_LEVELS, default=2)
+
+    class Meta:
+        unique_together = ("user", "document")
+
+    def __str__(self):
+        return f"{self.user} has {self.ACCESS_LEVELS[self.access_level]} access to {self.document}"

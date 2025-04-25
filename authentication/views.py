@@ -3,6 +3,7 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework import filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import *
 
@@ -16,11 +17,13 @@ class AuthenticationViewSet(GenericViewSet):
         elif self.action == 'register':
             return RegisterSerializer
         elif self.action == 'info':
-            return UserInfoSerilizer
+            return UserInfoSerializer
         elif self.action == 'profile':
             return UploadBase64ProfileImageSerializer
         elif self.action == 'change_password':
             return ChangePasswordSerializer
+        elif self.action=="user_lookup":
+            return UserLookupSerializer
         
     def get_permissions(self):
         if self.action in ['login', 'register']:
@@ -46,9 +49,9 @@ class AuthenticationViewSet(GenericViewSet):
     def info(self, request):
         user = request.user
         if request.method == 'GET':
-            return Response(UserInfoSerilizer(user).data)
+            return Response(UserInfoSerializer(user).data)
         elif request.method in ['PUT', 'PATCH']:
-            serializer = UserInfoSerilizer(user, data=request.data, partial=True)
+            serializer = UserInfoSerializer(user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
@@ -70,11 +73,18 @@ class AuthenticationViewSet(GenericViewSet):
         serializer.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+    @action(methods=['POST'],detail=False)
+    def user_lookup(self,request):
+        #TODO:change request type to GET
+        serializer = UserLookupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        return Response(serializer.to_representation(user),status=status.HTTP_200_OK)
+    
     
     
 
 class VerificationViewSet(GenericViewSet):
-    
     def get_serializer_class(self):
         if self.action=="verify_email":
             return EmailVerificationSerializer
@@ -84,7 +94,8 @@ class VerificationViewSet(GenericViewSet):
             return ForgetPasswordSerializer
         elif self.action=="forget_password_verify":
             return ForgetPasswordVerificationSerializer
-        
+        elif self.action=="user_lookup":
+            return UserLookupSerializer
         
     @action(methods=['POST'], detail=False)
     def verify_email(self,request):
@@ -127,4 +138,3 @@ class VerificationViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"message":"رمز عبور تغییر یافت"})    
-        
