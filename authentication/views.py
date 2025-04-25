@@ -16,7 +16,7 @@ class AuthenticationViewSet(GenericViewSet):
         elif self.action == 'register':
             return RegisterSerializer
         elif self.action == 'info':
-            return UserInfoSerilizer
+            return UserInfoSerializer
         elif self.action == 'profile':
             return UploadBase64ProfileImageSerializer
         elif self.action == 'change_password':
@@ -46,9 +46,9 @@ class AuthenticationViewSet(GenericViewSet):
     def info(self, request):
         user = request.user
         if request.method == 'GET':
-            return Response(UserInfoSerilizer(user).data)
+            return Response(UserInfoSerializer(user).data)
         elif request.method in ['PUT', 'PATCH']:
-            serializer = UserInfoSerilizer(user, data=request.data, partial=True)
+            serializer = UserInfoSerializer(user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
@@ -128,3 +128,9 @@ class VerificationViewSet(GenericViewSet):
         serializer.save()
         return Response({"message":"رمز عبور تغییر یافت"})    
         
+    @action(methods=['GET'],detail=False)
+    def user_lookup(self,request):
+        serializer = UserLookupSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        return Response(serializer.to_representation(user),status=status.HTTP_200_OK)

@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 from .models import *
 
 User = get_user_model()
@@ -99,7 +100,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
 
-class UserInfoSerilizer(serializers.ModelSerializer):
+class UserInfoSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField("get_profile_image")
 
     class Meta:
@@ -266,4 +267,39 @@ class ForgetPasswordVerificationSerializer(serializers.Serializer):
         user = User.objects.get(email=self.validated_data['email'])
         user.set_password(self.validated_data['new_password'])
         user.save()
+        
         return user
+class UserLookupSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        required=False,
+        help_text="Enter username (optional if email is provided)")
+    email= serializers.EmailField(
+        required=True,
+        help_text="Enter username (optional if username is provided)")
+
+    user_id = serializers.IntegerField(read_only=True)
+    
+    def validate(self, attrs):
+        if not any([attrs.get('username'), attrs.get('email_address')]):
+            raise serializers.ValidationError("باید نام کاربری یا آدرس ایمیل ارائه شود")
+        
+        
+        if attrs.get('username',None):
+            user = User.objects.filter(username=attrs.username).first()
+        elif attrs.get('email',None):
+            user = User.objects.filter(email=attrs.email).first()
+        else:
+            user = None
+            
+        if not user:
+            raise NotFound("کاربر یافت نشد")
+        
+        attrs.user = user
+        return attrs
+
+    def to_representation(self, instance):
+        return {
+            'user_id': instance.id,
+            'username': instance.username,
+            'email_address': instance.email,
+        }
