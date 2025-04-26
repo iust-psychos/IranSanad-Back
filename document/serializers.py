@@ -7,6 +7,12 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id","username","email"]
+        read_only_fields = ["id","username","email"]
 class DocumentSerializer(serializers.ModelSerializer):    
     owner_name = serializers.SerializerMethodField(method_name='get_owner_name')
     last_seen = serializers.SerializerMethodField(method_name='get_last_seen')
@@ -51,7 +57,7 @@ class UserPermissionSerializer(serializers.Serializer):
             raise NotFound(f"User {value} does not exist")
 
 
-class DocumentPermissionSerializer(serializers.Serializer):
+class DocumentSetPermissionSerializer(serializers.Serializer):
     document = serializers.IntegerField()
     permissions = serializers.ListField(child=UserPermissionSerializer(), min_length=1)
 
@@ -94,7 +100,34 @@ class DocumentPermissionSerializer(serializers.Serializer):
             )
             if perm_level > changer_level:
                 raise PermissionDenied(
-                    f"Cannot set permission level higher than your own (permission level {changer_level} and {perm_level})"
+                    f"Cannot set permission level higher than your own (permission level {changer_level} , requested change level{perm_level})"
                 )
 
         return attrs
+
+class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
+    class Meta:
+        model = AccessLevel
+        fields=['user','access_level']
+
+class DocumentLookupSerializer(serializers.Serializer):
+    link = serializers.CharField(required=True)
+    
+    def validate(self, attrs):
+        if not attrs.get('link'):
+            raise serializers.ValidationError("باید لینک سند ارائه شود")
+        document = Document.objects.filter(link=attrs['link']).first() 
+        if not document:
+            raise NotFound("سند یافت نشد")
+        
+        attrs['document'] = document
+        return attrs
+
+    def to_representation(self, instance):
+        return {
+            'document_id': instance.id,
+            'title': instance.title,
+            'link': instance.link,
+        }
