@@ -3,7 +3,6 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework import filters
 from rest_framework.permissions import IsAuthenticated
 from .serializers import *
 
@@ -104,7 +103,7 @@ class VerificationViewSet(GenericViewSet):
         serializer = EmailVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"message":"ایمیل تایید شد"})
+        return Response({"message":"ایمیل تایید شد"} ,status=status.HTTP_200_OK)
     
     
     @action(methods=['POST'], detail=False)
@@ -116,8 +115,9 @@ class VerificationViewSet(GenericViewSet):
         try:
             verification.send_verification_email()
         except Exception as e:
+            logger.error(str(e))
             return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response({"message":"ایمیل تایید مجددا ارسال شد"})
+        return Response({"message":"ایمیل تایید مجددا ارسال شد"} ,status=status.HTTP_200_OK)
     
     
     @action(methods=['POST'], detail=False)
@@ -132,17 +132,17 @@ class VerificationViewSet(GenericViewSet):
         except Exception as e:
             logger.error(str(e))
             return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response({"message":"ایمیل تایید فراموشی رمز عبور ارسال شد"})
+        return Response({"message":"ایمیل تایید فراموشی رمز عبور ارسال شد"} ,status=status.HTTP_200_OK)
     
     @action(methods=['POST'], detail=False)
     def verify_code(self,request):
         serializer = VerifyCodeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response({"message":"کد وارد شده صحیح است"})
+        return Response({"message":"کد وارد شده صحیح است"} ,status=status.HTTP_200_OK)
     
     @action(methods=['POST'], detail=False)
     def forget_password_verify(self,request):
         serializer = ForgetPasswordVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"message":"رمز عبور تغییر یافت"})    
+        return Response({"message":"رمز عبور تغییر یافت"} ,status=status.HTTP_201_CREATED)    

@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound , NotAcceptable
 from .models import *
 
 User = get_user_model()
@@ -198,8 +198,9 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class EmailVerificationSerializer(serializers.Serializer):
-    code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
+    code = serializers.CharField(max_length=5)
+    
 
     def validate(self, attrs):
         user = User.objects.filter(email=attrs['email']).first()
