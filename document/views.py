@@ -22,7 +22,7 @@ class DocumentViewSet(ModelViewSet):
             return DocumentSerializer
 
     # Suggestion: Uncomment the following line if you want to use a custom lookup field
-    # lookup_field = 'doc_uuid'
+    lookup_field = 'doc_uuid'
     serializer_class = DocumentSerializer
     queryset = Document.objects.all()
     permission_classes = [IsAuthenticated]

@@ -9,10 +9,14 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_image = serializers.SerializerMethodField("get_profile_image")
     class Meta:
         model = User
-        fields = ["id","username","email"]
-        read_only_fields = ["id","username","email"]
+        fields = ["id","username","email","profile_image"]
+        read_only_fields = ["id","username","email","profile_image"]
+        
+    def get_profile_image(self, user):
+        return user.profile_image()
 class DocumentSerializer(serializers.ModelSerializer):    
     owner_name = serializers.SerializerMethodField(method_name='get_owner_name')
     last_seen = serializers.SerializerMethodField(method_name='get_last_seen')
@@ -107,18 +111,30 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
 
 class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-    
+    access_level =serializers.SerializerMethodField("get_access_level")
     class Meta:
         model = AccessLevel
         fields=['user','access_level']
+        
+    def get_access_level(self, access_instance):
+        return AccessLevel.ACCESS_LEVELS[access_instance.access_level]
 
 class DocumentLookupSerializer(serializers.Serializer):
-    link = serializers.CharField(required=True)
+    link = serializers.CharField(required = False)
+    doc_uuid = serializers.UUIDField(required = False)
+    title = serializers.CharField(read_only = True)
+    document_id = serializers.IntegerField(read_only=True)
     
     def validate(self, attrs):
-        if not attrs.get('link'):
-            raise serializers.ValidationError("باید لینک سند ارائه شود")
-        document = Document.objects.filter(link=attrs['link']).first() 
+        if not any([attrs.get('link'), attrs.get('doc_uuid')]):
+            raise serializers.ValidationError("link or doc_uuid must be filled(one of them is enough)")
+        
+        if attrs.get('link',None):
+            document = Document.objects.filter(link=attrs['link']).first()
+        elif attrs.get('doc_uuid',None):
+            document = Document.objects.filter(doc_uuid=attrs['doc_uuid']).first()
+        else:
+            document = None    
         if not document:
             raise NotFound("سند یافت نشد")
         
@@ -130,4 +146,5 @@ class DocumentLookupSerializer(serializers.Serializer):
             'document_id': instance.id,
             'title': instance.title,
             'link': instance.link,
+            'doc_uuid': instance.doc_uuid
         }

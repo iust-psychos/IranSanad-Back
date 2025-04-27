@@ -94,6 +94,8 @@ class VerificationViewSet(GenericViewSet):
             return ForgetPasswordSerializer
         elif self.action=="forget_password_verify":
             return ForgetPasswordVerificationSerializer
+        elif self.action=="verify_code":
+            return VerifyCodeSerializer
         elif self.action=="user_lookup":
             return UserLookupSerializer
         
@@ -131,6 +133,12 @@ class VerificationViewSet(GenericViewSet):
             logger.error(str(e))
             return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({"message":"ایمیل تایید فراموشی رمز عبور ارسال شد"})
+    
+    @action(methods=['POST'], detail=False)
+    def verify_code(self,request):
+        serializer = VerifyCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({"message":"کد وارد شده صحیح است"})
     
     @action(methods=['POST'], detail=False)
     def forget_password_verify(self,request):

@@ -242,7 +242,24 @@ class ForgetPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError({"email": ("ایمیل ارائه شده نامعتبر است.")})
         return super().validate(attrs)
 
-
+class VerifyCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=5 ,write_only=True)
+    email = serializers.EmailField(write_only=True)
+    def validate(self, attrs):
+        user = User.objects.filter(email=attrs['email']).first()
+        verification = ForgetPasswordVerification.objects.filter(user=user).first()
+        if not user or not verification:
+            raise serializers.ValidationError({"email": ("ایمیل ارائه شده نامعتبر است.")})
+        if verification.is_expired():
+            raise serializers.ValidationError({"code": ("رمز تأیید منقضی شده است.")})
+        if not verification.is_valid(attrs['code']):
+            raise serializers.ValidationError({"code": ("رمز تأیید اشتباه است.")})
+        return super().validate(attrs)
+    
+    class Meta:
+        read_only_fields = ()
+    
+    
 class ForgetPasswordVerificationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
