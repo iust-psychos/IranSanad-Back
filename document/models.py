@@ -11,8 +11,10 @@ class Document(models.Model):
         0: "Deny",
     }
     title = models.CharField(max_length=255, default="سند بدون عنوان")
-    link = models.CharField(max_length=15,unique=True,blank=True)
-    owner = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True)
+    link = models.CharField(max_length=15, unique=True, blank=True)
+    owner = models.ForeignKey(
+        "authentication.User", on_delete=models.SET_NULL, null=True, blank=True
+    )
     content = models.BinaryField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -21,32 +23,36 @@ class Document(models.Model):
     default_access_level = models.PositiveSmallIntegerField(
         choices=ACCESS_LEVELS, default=2
     )
-    
+
     def __str__(self):
         return self.title
-    
+
     def get_last_seen_by_user(self, user):
         try:
-            return DocumentView.objects.filter(document=self, user=user).latest('viewed_at')
+            return DocumentView.objects.filter(document=self, user=user).latest(
+                "viewed_at"
+            )
         except DocumentView.DoesNotExist:
             return None
-        
-        
-                
+
+
 class DocumentView(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
-    user = models.ForeignKey('authentication.User', on_delete=models.CASCADE)
+    user = models.ForeignKey("authentication.User", on_delete=models.CASCADE)
     viewed_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return f"{self.user.username} viewed {self.document.title} on {self.viewed_at}"
 
 
-
 class DocumentUpdate(models.Model):
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='updates')
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="updates"
+    )
     update_data = models.BinaryField()  # Stores the Yjs update as binary data
-    created_at = models.DateTimeField(auto_now_add=True)  # Timestamp for when the update was created
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )  # Timestamp for when the update was created
 
     def __str__(self):
         return f"Update for {self.document.title} at {self.created_at}"
@@ -73,3 +79,50 @@ class AccessLevel(models.Model):
 
     def __str__(self):
         return f"{self.user} has {self.ACCESS_LEVELS[self.access_level]} access to {self.document}"
+
+
+class Comment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.ForeignKey(Document, on_delete=models.CASCADE)
+    author = models.ForeignKey(
+        "authentication.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="comments",
+    )
+    text = models.TextField()
+    range_start = models.JSONField()
+    range_end = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_resolved = models.BooleanField(default=False)
+    resolved_by = models.ForeignKey(
+        "authentication.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="resolved_comments",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["document", "created_at"]),
+            models.Index(fields=["is_resolved"]),
+        ]
+
+    def __str__(self):
+        return f"{self.author} commented on {self.document.title} at {self.created_at}"
+
+
+class CommentReply(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
+    author = models.ForeignKey(
+        "authentication.User", on_delete=models.SET_NULL, null=True
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Reply by {self.author} at {self.created_at}"
