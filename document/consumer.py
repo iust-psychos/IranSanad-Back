@@ -29,32 +29,16 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'document_{self.doc_uuid}'
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-
-        ydoc = YDoc()
-        updates = await sync_to_async(list)(
-        DocumentUpdate.objects.filter(document=self.document)
-                              .order_by("created_at")
-                              .values_list("update_data", flat=True)
-        )
-        for u in updates:
-            try :
-                logger.info(f"Applying update to document {self.doc_uuid}")
-                logger.info(f"Update bytes: {bytes(u)}")
-                apply_update(ydoc, bytes(u))
-            except Exception as e:
-                logger.error(f"Error applying update: {e}")
-
-        # send the one-time full snapshot to the client
-        full_snapshot = encode_state_as_update(ydoc)
-        logger.info(f"Sending full snapshot to {self.user} for document {self.document.doc_uuid}")
-        logger.info(f"Full snapshot bytes: {full_snapshot}")
-        await self.send(bytes_data=full_snapshot)
         
         self.last_seen = await DocumentView.objects.acreate(
             document=self.document,
             user=self.user
         )
         logger.info(f"Document viewed by user: {self.user} for document {self.document.doc_uuid}")
+        
+        self.ydoc = YDoc() 
+        if self.document.content:
+            apply_update(self.ydoc, bytes(self.document.content))
 
         
 
@@ -70,6 +54,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 document=self.document,
                 user=self.user
             )
+        self.document.content = await sync_to_async(encode_state_as_update)(self.ydoc)
+        await self.document.asave(update_fields=['content'])
 
         
 
@@ -89,12 +75,11 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        # Apply update to DB
         if b'"anchorPos"' in bytes_data or b'"awareness"' in bytes_data:
             logger.info("Received awareness or anchor position update.")
         else:
             logger.info("Received Yjs update.")
-            await self.apply_update_to_doc(self.doc_uuid, bytes_data)
+            await self.apply_update_to_doc(bytes_data)
 
 
     async def yjs_update(self, event):
@@ -104,30 +89,9 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         await self.send(bytes_data=event['bytes'])
 
     @sync_to_async
-    def apply_update_to_doc(self, doc_uuid, update_bytes):
-        try:
-            logger.info(f"Applying update to document {doc_uuid}")
-            logger.info(f"Update bytes: {update_bytes}")
-            document = Document.objects.get(doc_uuid=doc_uuid)
-
-            ydoc = YDoc()
-            if document.content:
-                logger.info(f"Document content: {bytes(document.content)}")
-                apply_update(ydoc, bytes(document.content))
-            logger.info(f"Encoded state as update before add new update(just perv content): {encode_state_as_update(ydoc)}")
-            logger.info(f"Update bytes: {update_bytes}")
-            # check if update_bytes is not empty and valid
-            if update_bytes and len(update_bytes) > 0:
-                logger.info(f"Applying update to YDoc.")
-                apply_update(ydoc, update_bytes)
-            logger.info(f"Encoded state as update after add new update: {encode_state_as_update(ydoc)}")
-            DocumentUpdate.objects.create(document=document, update_data=update_bytes)
-            logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
-            document.content = encode_state_as_update(ydoc)
-            document.save(update_fields=['content'])
-            logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
-            logger.info(f"Document content after update: {bytes(document.content)}")
-        except ObjectDoesNotExist:
-            logger.error(f"Document with UUID {doc_uuid} does not exist.")
-        except Exception as e:
-            logger.error(f"Error applying update to document {doc_uuid}: {e}")
+    def apply_update_to_doc(self, update_bytes):
+        logger.info(f"Update bytes: {update_bytes}")
+        apply_update(self.ydoc, update_bytes)
+        
+            
+            
