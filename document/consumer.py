@@ -75,7 +75,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             }
         )
 
-        if b'"anchorPos"' in bytes_data or b'"awareness"' in bytes_data:
+        if b'"anchorPos"' in bytes_data or b'"awareness"' in bytes_data or b'"awarenessStates"' in bytes_data:
             logger.info("Received awareness or anchor position update.")
         else:
             logger.info("Received Yjs update.")
@@ -88,7 +88,6 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         await self.send(bytes_data=event['bytes'])
 
-    @sync_to_async
     def apply_update_to_doc(self, update_bytes):
         logger.info(f"Update bytes: {update_bytes}")
         apply_update(self.ydoc, update_bytes)
