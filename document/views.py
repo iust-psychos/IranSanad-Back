@@ -22,7 +22,7 @@ class DocumentViewSet(ModelViewSet):
             return DocumentSerializer
 
     # Suggestion: Uncomment the following line if you want to use a custom lookup field
-    lookup_field = 'doc_uuid'
+    lookup_field = "doc_uuid"
     serializer_class = DocumentSerializer
     queryset = Document.objects.all()
     permission_classes = [IsAuthenticated]
@@ -92,7 +92,9 @@ class DocumentPermissionViewSet(GenericViewSet):
             {"document": doc.id, "results": results}, status=status.HTTP_200_OK
         )
 
-    @action(methods=["GET"], detail=False, url_path="get_permission_list/(?P<document>\d+)")
+    @action(
+        methods=["GET"], detail=False, url_path="get_permission_list/(?P<document>\d+)"
+    )
     def get_permission_list(self, request, document=None):
         try:
             document = Document.objects.get(pk=document)
@@ -106,3 +108,20 @@ class DocumentPermissionViewSet(GenericViewSet):
         serializer = self.get_serializer(access_levels, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CommentViewSet(ModelViewSet):
+
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        doc_id = self.kwargs["doc_id"]
+        is_resolved = self.request.query_params.get("is_resolved", None)
+        queryset = (
+            Comment.objects.filter(document=doc_id)
+            .select_related("author", "resolved_by")
+            .prefetch_related("commentreply_set")
+        )
+        if is_resolved is not None:
+            queryset = queryset.filter(is_resolved=is_resolved.lower() == "true")
+        return queryset

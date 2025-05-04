@@ -8,46 +8,77 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+
 class UserSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField("get_profile_image")
+
     class Meta:
         model = User
-        fields = ["id","username","email","profile_image"]
-        read_only_fields = ["id","username","email","profile_image"]
-        
+        fields = ["id", "username", "email", "profile_image"]
+        read_only_fields = ["id", "username", "email", "profile_image"]
+
     def get_profile_image(self, user):
         return user.profile_image()
-class DocumentSerializer(serializers.ModelSerializer):    
-    owner_name = serializers.SerializerMethodField(method_name='get_owner_name')
-    last_seen = serializers.SerializerMethodField(method_name='get_last_seen')
-    
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    owner_name = serializers.SerializerMethodField(method_name="get_owner_name")
+    last_seen = serializers.SerializerMethodField(method_name="get_last_seen")
+
     def get_owner_name(self, obj):
-        request_user = self.context.get('request').user
+        request_user = self.context.get("request").user
         if request_user and request_user.id == obj.owner.id:
-            return 'Me'
-        return obj.owner.username if obj.owner else 'Unknown'
-    
+            return "Me"
+        return obj.owner.username if obj.owner else "Unknown"
+
     def get_last_seen(self, obj):
-        request_user = self.context.get('request').user
-        last_seen = DocumentView.objects.filter(document=obj, user=request_user).order_by('-viewed_at').first()
+        request_user = self.context.get("request").user
+        last_seen = (
+            DocumentView.objects.filter(document=obj, user=request_user)
+            .order_by("-viewed_at")
+            .first()
+        )
         return last_seen.viewed_at if last_seen else None
 
     class Meta:
         model = Document
-        fields = ['id', 'doc_uuid', 'title', 'owner', 'owner_name', 'created_at', 'updated_at', 'link', 'is_public', 'last_seen']
-        read_only_fields = ['id', 'doc_uuid', 'owner', 'created_at', 'updated_at', 'link', 'last_seen', 'is_public']
+        fields = [
+            "id",
+            "doc_uuid",
+            "title",
+            "owner",
+            "owner_name",
+            "created_at",
+            "updated_at",
+            "link",
+            "is_public",
+            "last_seen",
+        ]
+        read_only_fields = [
+            "id",
+            "doc_uuid",
+            "owner",
+            "created_at",
+            "updated_at",
+            "link",
+            "last_seen",
+            "is_public",
+        ]
 
     def create(self, validated_data):
         document = Document.objects.create(**validated_data)
-        generated_link = link_generator(f"{document.title}{document.created_at.timestamp()}")
+        generated_link = link_generator(
+            f"{document.title}{document.created_at.timestamp()}"
+        )
 
         document.link = generated_link
         document.save()
-        
+
         logger.info(f"Document created with link: {generated_link}")
-        
+
         return document
-      
+
+
 class UserPermissionSerializer(serializers.Serializer):
     PERMISSION_MAP = {"Owner": 4, "Admin": 3, "Write": 2, "ReadOnly": 1, "Deny": 0}
 
@@ -89,8 +120,10 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
             )
 
         for permission in attrs["permissions"]:
-            user = permission.get('user')
-            perm_level = UserPermissionSerializer.PERMISSION_MAP[permission['permission']]
+            user = permission.get("user")
+            perm_level = UserPermissionSerializer.PERMISSION_MAP[
+                permission["permission"]
+            ]
 
             # Prevent changing owner's permissions unless you're the owner
             if user == doc.owner and changer != doc.owner:
@@ -109,42 +142,83 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
 
         return attrs
 
+
 class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
-    access_level =serializers.SerializerMethodField("get_access_level")
+    access_level = serializers.SerializerMethodField("get_access_level")
+
     class Meta:
         model = AccessLevel
-        fields=['user','access_level']
-        
+        fields = ["user", "access_level"]
+
     def get_access_level(self, access_instance):
         return AccessLevel.ACCESS_LEVELS[access_instance.access_level]
 
+
 class DocumentLookupSerializer(serializers.Serializer):
-    link = serializers.CharField(required = False)
-    doc_uuid = serializers.UUIDField(required = False)
-    title = serializers.CharField(read_only = True)
+    link = serializers.CharField(required=False)
+    doc_uuid = serializers.UUIDField(required=False)
+    title = serializers.CharField(read_only=True)
     document_id = serializers.IntegerField(read_only=True)
-    
+
     def validate(self, attrs):
-        if not any([attrs.get('link'), attrs.get('doc_uuid')]):
-            raise serializers.ValidationError("link or doc_uuid must be filled(one of them is enough)")
-        
-        if attrs.get('link',None):
-            document = Document.objects.filter(link=attrs['link']).first()
-        elif attrs.get('doc_uuid',None):
-            document = Document.objects.filter(doc_uuid=attrs['doc_uuid']).first()
+        if not any([attrs.get("link"), attrs.get("doc_uuid")]):
+            raise serializers.ValidationError(
+                "link or doc_uuid must be filled(one of them is enough)"
+            )
+
+        if attrs.get("link", None):
+            document = Document.objects.filter(link=attrs["link"]).first()
+        elif attrs.get("doc_uuid", None):
+            document = Document.objects.filter(doc_uuid=attrs["doc_uuid"]).first()
         else:
-            document = None    
+            document = None
         if not document:
             raise NotFound("سند یافت نشد")
-        
-        attrs['document'] = document
+
+        attrs["document"] = document
         return attrs
 
     def to_representation(self, instance):
         return {
-            'document_id': instance.id,
-            'title': instance.title,
-            'link': instance.link,
-            'doc_uuid': instance.doc_uuid
+            "document_id": instance.id,
+            "title": instance.title,
+            "link": instance.link,
+            "doc_uuid": instance.doc_uuid,
         }
+
+
+class CommentReplySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommentReply
+        fields = [
+            "id",
+            "author",
+            "text",
+            "created_at",
+            "updated_at",
+        ]
+
+    author = UserSerializer(read_only=True)
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = [
+            "comment_uuid",
+            "document",
+            "author",
+            "text",
+            "range_start",
+            "range_end",
+            "is_resolved",
+            "resolved_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    comment_uuid = serializers.UUIDField(source="id")
+    document = serializers.PrimaryKeyRelatedField(
+        queryset=Document.objects.all(), write_only=True
+    )
