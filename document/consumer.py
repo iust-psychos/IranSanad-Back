@@ -99,14 +99,19 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             if document.content:
                 logger.info(f"Document content: {bytes(document.content)}")
                 apply_update(ydoc, bytes(document.content))
-            logger.info(f"Applying update to YDoc.")
-            apply_update(ydoc, update_bytes)
-            logger.info(f"YDoc after applying update: {ydoc}")
+            logger.info(f"Encoded state as update before add new update(just perv content): {encode_state_as_update(ydoc)}")
+            logger.info(f"Update bytes: {update_bytes}")
+            # check if update_bytes is not empty and valid
+            if update_bytes and len(update_bytes) > 0:
+                logger.info(f"Applying update to YDoc.")
+                apply_update(ydoc, update_bytes)
+            logger.info(f"Encoded state as update after add new update: {encode_state_as_update(ydoc)}")
             DocumentUpdate.objects.create(document=document, update_data=update_bytes)
             logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
             document.content = encode_state_as_update(ydoc)
             document.save()
             logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
+            logger.info(f"Document content after update: {bytes(document.content)}")
         except ObjectDoesNotExist:
             logger.error(f"Document with UUID {doc_uuid} does not exist.")
         except Exception as e:
