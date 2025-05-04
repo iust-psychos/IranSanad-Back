@@ -37,8 +37,13 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         logger.info(f"Document viewed by user: {self.user} for document {self.document.doc_uuid}")
         
         self.ydoc = YDoc() 
-        if self.document.content:
+        if bytes(self.document.content):
+            # Apply the initial state to the Yjs document
             apply_update(self.ydoc, bytes(self.document.content))
+            # Send the initial state to the new client
+            initial_state = encode_state_as_update(self.ydoc)
+            await self.send(bytes_data=initial_state)
+            
 
         
 
@@ -54,8 +59,6 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 document=self.document,
                 user=self.user
             )
-        self.document.content = await sync_to_async(encode_state_as_update)(self.ydoc)
-        await self.document.asave(update_fields=['content'])
 
         
 
@@ -75,11 +78,20 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             }
         )
 
+
         if b'"anchorPos"' in bytes_data or b'"awareness"' in bytes_data or b'"awarenessStates"' in bytes_data:
             logger.info("Received awareness or anchor position update.")
         else:
             logger.info("Received Yjs update.")
             apply_update(self.ydoc, bytes_data)
+            # Save the update to the database
+            self.document.content = encode_state_as_update(self.ydoc)
+            await self.document.asave()
+            await DocumentUpdate.objects.acreate(
+                document=self.document,
+                update_data=bytes_data
+            )
+            logger.info(f"Document updated by user: {self.user} for document {self.document.doc_uuid}")
 
 
     async def yjs_update(self, event):
