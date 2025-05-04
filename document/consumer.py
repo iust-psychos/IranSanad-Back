@@ -76,7 +76,11 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         )
 
         # Apply update to DB
-        await self.apply_update_to_doc(self.doc_uuid, bytes_data)
+        if b'"anchorPos"' in bytes_data or b'"awareness"' in bytes_data:
+            logger.info("Received awareness or anchor position update.")
+        else:
+            logger.info("Received Yjs update.")
+            await self.apply_update_to_doc(self.doc_uuid, bytes_data)
 
     async def yjs_update(self, event):
         if event['sender_channel'] == self.channel_name:
