@@ -98,9 +98,9 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             ydoc = YDoc()
             if document.content:
                 apply_update(ydoc, document.content)
-            logger.info(f"Applying update to YDoc: {ydoc}")
-            apply_update(ydoc, update_bytes)
-            logger.info(f"YDoc after applying update: {ydoc}")
+            logger.info(f"Applying update to YDoc.")
+            apply_update(ydoc, list(update_bytes))
+            logger.info(f"YDoc after applying update.")
             DocumentUpdate.objects.create(document=document, update_data=update_bytes)
             logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
             document.content = encode_state_as_update(ydoc)
