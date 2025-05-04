@@ -97,7 +97,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
             ydoc = YDoc()
             if document.content:
-                apply_update(ydoc, document.content)
+                logger.info(f"Document content: {bytes(document.content)}")
+                apply_update(ydoc, bytes(document.content))
             logger.info(f"Applying update to YDoc.")
             apply_update(ydoc, update_bytes)
             logger.info(f"YDoc after applying update: {ydoc}")
