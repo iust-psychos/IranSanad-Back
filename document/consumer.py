@@ -79,7 +79,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             logger.info("Received awareness or anchor position update.")
         else:
             logger.info("Received Yjs update.")
-            await self.apply_update_to_doc(bytes_data)
+            apply_update(self.ydoc, bytes_data)
 
 
     async def yjs_update(self, event):
@@ -88,9 +88,6 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         await self.send(bytes_data=event['bytes'])
 
-    def apply_update_to_doc(self, update_bytes):
-        logger.info(f"Update bytes: {update_bytes}")
-        apply_update(self.ydoc, update_bytes)
         
             
             
