@@ -30,12 +30,19 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
-        # send content of document to client
-        # log the content of the document
-        logger.info(f"Document content: {bytes(self.document.content)}")
-        if self.document.content:
-            await self.send(bytes_data=bytes(self.document.content))
-        logger.info(f"WebSocket connection established for document {self.doc_uuid} from {self.channel_name}")
+        ydoc = YDoc()
+        updates = await sync_to_async(list)(
+        DocumentUpdate.objects.filter(document=self.document)
+                              .order_by("created_at")
+                              .values_list("update_data", flat=True)
+        )
+        for u in updates:
+            apply_update(ydoc, u)
+
+        # send the one-time full snapshot to the client
+        full_snapshot = encode_state_as_update(ydoc)
+        await self.send(bytes_data=full_snapshot)
+        
         self.last_seen = await DocumentView.objects.acreate(
             document=self.document,
             user=self.user
@@ -80,7 +87,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             logger.info("Received awareness or anchor position update.")
         else:
             logger.info("Received Yjs update.")
-            await self.apply_update_to_doc(self.doc_uuid, bytes_data)
+            document = await Document.objects.aget(doc_uuid=self.doc_uuid)
+            await DocumentUpdate.objects.acreate(document=document, update_data=bytes_data)
 
     async def yjs_update(self, event):
         if event['sender_channel'] == self.channel_name:
@@ -116,4 +124,3 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             logger.error(f"Document with UUID {doc_uuid} does not exist.")
         except Exception as e:
             logger.error(f"Error applying update to document {doc_uuid}: {e}")
-            raise e
