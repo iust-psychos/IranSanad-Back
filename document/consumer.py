@@ -124,7 +124,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             DocumentUpdate.objects.create(document=document, update_data=update_bytes)
             logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
             document.content = encode_state_as_update(ydoc)
-            document.save()
+            document.save(update_fields=['content'])
             logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
             logger.info(f"Document content after update: {bytes(document.content)}")
         except ObjectDoesNotExist:
