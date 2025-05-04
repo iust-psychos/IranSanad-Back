@@ -37,7 +37,12 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                               .values_list("update_data", flat=True)
         )
         for u in updates:
-            apply_update(ydoc, u)
+            try :
+                logger.info(f"Applying update to document {self.doc_uuid}")
+                logger.info(f"Update bytes: {u}")
+                apply_update(ydoc, u)
+            except Exception as e:
+                logger.error(f"Error applying update: {e}")
 
         # send the one-time full snapshot to the client
         full_snapshot = encode_state_as_update(ydoc)
