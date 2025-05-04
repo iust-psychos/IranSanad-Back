@@ -39,8 +39,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         for u in updates:
             try :
                 logger.info(f"Applying update to document {self.doc_uuid}")
-                logger.info(f"Update bytes: {u}")
-                apply_update(ydoc, u)
+                logger.info(f"Update bytes: {bytes(u)}")
+                apply_update(ydoc, bytes(u))
             except Exception as e:
                 logger.error(f"Error applying update: {e}")
 
