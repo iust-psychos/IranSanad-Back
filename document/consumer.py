@@ -41,6 +41,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         # send the one-time full snapshot to the client
         full_snapshot = encode_state_as_update(ydoc)
+        logger.info(f"Sending full snapshot to {self.user} for document {self.document.doc_uuid}")
+        logger.info(f"Full snapshot bytes: {full_snapshot}")
         await self.send(bytes_data=full_snapshot)
         
         self.last_seen = await DocumentView.objects.acreate(
