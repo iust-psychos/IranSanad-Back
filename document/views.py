@@ -28,7 +28,16 @@ class DocumentViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return self.queryset.filter(owner=self.request.user)
+        if self.action == "list":
+            documents = (
+                AccessLevel.objects.filter(user_id=self.request.user.id)
+                .filter(access_level__gte=1)
+                .values_list("document_id", flat=True)
+            )
+            queryset = self.queryset.filter(id__in=documents)
+            return queryset
+        else:
+            return self.queryset.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
