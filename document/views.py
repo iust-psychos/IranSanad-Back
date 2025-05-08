@@ -1,9 +1,9 @@
+from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-
 
 from .permissions import *
 from .serializers import *
@@ -34,7 +34,9 @@ class DocumentViewSet(ModelViewSet):
                 .filter(access_level__gte=1)
                 .values_list("document_id", flat=True)
             )
-            queryset = self.queryset.filter(id__in=documents)
+            queryset = self.queryset.filter(
+                Q(id__in=documents) | Q(owner=self.request.user)
+            )
             return queryset
         else:
             return self.queryset.filter(owner=self.request.user)
