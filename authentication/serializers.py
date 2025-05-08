@@ -65,6 +65,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(max_length=5,write_only=True)
     password = serializers.CharField(
         style={'input_type': 'password'},
         write_only=True,
@@ -77,18 +78,29 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password2', 'phone_number']
+        fields = ['username', 'email', 'password', 'password2', 'phone_number','code']
 
     def validate(self, attrs):
+        verification = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        code = attrs.get('code')
+        if not verification:
+            raise NotFound({'message':('متاسفانه هیچ کدی به این ایمیل ارسال نشده')})
+        if verification.is_expired():
+            raise NotAcceptable({'message':('متاسفانه کد تایید منقضی شده')})
+        if not verification.is_valid(code):
+            raise NotAcceptable({'message':('کد تایید وارد شده اشتباه است')})
         password = attrs.get('password')
         password2 = attrs.pop('password2')
         if password != password2:
             raise serializers.ValidationError(
-                ('رمز عبور و تأیید آن مطابقت ندارند.')
+                {'message':('رمز عبور و تأیید آن مطابقت ندارند.')}
             )
+        verification.is_verified =True
+        verification.save()
         return attrs
 
     def create(self, validated_data):
+        validated_data.pop('code')
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -242,20 +254,6 @@ class ForgetPasswordSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError({"email": ("ایمیل ارائه شده نامعتبر است.")})
         return super().validate(attrs)
-
-class VerifyCodeSerializer(serializers.Serializer):
-    code = serializers.CharField(max_length=5 ,write_only=True)
-    email = serializers.EmailField(write_only=True)
-    def validate(self, attrs):
-        user = User.objects.filter(email=attrs['email']).first()
-        verification = ForgetPasswordVerification.objects.filter(user=user).first()
-        if not user or not verification:
-            raise serializers.ValidationError({"email": ("ایمیل ارائه شده نامعتبر است.")})
-        if verification.is_expired():
-            raise serializers.ValidationError({"code": ("رمز تأیید منقضی شده است.")})
-        if not verification.is_valid(attrs['code']):
-            raise serializers.ValidationError({"code": ("رمز تأیید اشتباه است.")})
-        return super().validate(attrs)
     
     class Meta:
         read_only_fields = ()
@@ -313,3 +311,29 @@ class UserLookupSerializer(serializers.Serializer):
             'username': instance.username,
             'email_address': instance.email,
         }
+    
+class SignupEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(write_only = True)
+    username = serializers.CharField(write_only = True)
+    def validate(self, attrs):
+        if User.objects.filter(email=attrs.get('email')).exists():
+            raise NotAcceptable({"message": ("کاربری با این ایمیل وجود دارد ")})
+        if User.objects.filter(username=attrs.get('username')).exists():
+            raise NotAcceptable({"message": ("کاربری با این نام وجود دارد ")})
+        validation = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        if validation and not validation.is_expired():
+            raise NotAcceptable({"message": ("کد تایید قبلا به این ایمیل ارسال شده")})
+        elif validation and validation.is_verified :
+            raise NotAcceptable({"message": ("ایمیل ارائه شده قبلاً تأیید شده است")})
+        return super().validate(attrs)
+    
+class SignupResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, attrs):
+        validation = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        if not validation:
+            raise serializers.ValidationError({"message": ("به ایمیل داده شده ایمیلی داده نشده است")})
+        if validation.is_verified:
+            raise serializers.ValidationError({"message": ("ایمیل ارائه شده قبلاً تأیید شده است.")})
+        return super().validate(attrs)

@@ -23,9 +23,13 @@ class AuthenticationViewSet(GenericViewSet):
             return ChangePasswordSerializer
         elif self.action=="user_lookup":
             return UserLookupSerializer
+        elif self.action=="signup_email_verification":
+            return SignupEmailVerificationSerializer
+        elif self.action=="signup_resend_verification":
+            return SignupResendVerificationSerializer
         
     def get_permissions(self):
-        if self.action in ['login', 'register']:
+        if self.action in ['login', 'register','signup_email_verification','signup_resend_verification']:
             return []
         else :
             return [IsAuthenticated()]
@@ -80,6 +84,50 @@ class AuthenticationViewSet(GenericViewSet):
         user = serializer.validated_data['user']
         return Response(serializer.to_representation(user),status=status.HTTP_200_OK)
     
+    @action(methods=['POST'],detail=False)
+    def signup_email_verification(self,request):
+        serializer = SignupEmailVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        (verification,created) = SignupEmailVerification.objects.get_or_create(email=serializer.validated_data['email'])
+        try:
+            verification.send_verification_email()
+        except Exception as e:
+            logger.error(str(e))
+            return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message":"ایمیل تایید ایمیل کاربر ارسال شد"} ,status=status.HTTP_200_OK)
+    
+    @action(methods=['POST'],detail=False)
+    def signup_resend_verification(self,request):
+        serializer = SignupResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        verification = SignupEmailVerification.objects.filter(email=serializer.validated_data['email']).first()
+        try:
+            verification.send_verification_email()
+        except Exception as e:
+            logger.error(str(e))
+            return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message":"ایمیل تایید ایمیل کاربر ارسال شد"} ,status=status.HTTP_200_OK)
+        
+    
+    @action(methods=['POST'], detail=False)
+    def forget_password_verify(self,request):
+        serializer = ForgetPasswordVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message":"رمز عبور تغییر یافت"} ,status=status.HTTP_201_CREATED)    
+    
+    @action(methods=['POST'], detail=False)
+    def resend(self,request):
+        serializer = ResendEmailVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = User.objects.get(email=serializer.validated_data['email'])
+        verification = EmailVerification.objects.get(user=user)
+        try:
+            verification.send_verification_email()
+        except Exception as e:
+            logger.error(str(e))
+            return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message":"ایمیل تایید مجددا ارسال شد"} ,status=status.HTTP_200_OK)
     
     
 
@@ -93,8 +141,6 @@ class VerificationViewSet(GenericViewSet):
             return ForgetPasswordSerializer
         elif self.action=="forget_password_verify":
             return ForgetPasswordVerificationSerializer
-        elif self.action=="verify_code":
-            return VerifyCodeSerializer
         elif self.action=="user_lookup":
             return UserLookupSerializer
         
@@ -134,11 +180,6 @@ class VerificationViewSet(GenericViewSet):
             return Response({"message":"خطا در ارسال ایمیل"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({"message":"ایمیل تایید فراموشی رمز عبور ارسال شد"} ,status=status.HTTP_200_OK)
     
-    @action(methods=['POST'], detail=False)
-    def verify_code(self,request):
-        serializer = VerifyCodeSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response({"message":"کد وارد شده صحیح است"} ,status=status.HTTP_200_OK)
     
     @action(methods=['POST'], detail=False)
     def forget_password_verify(self,request):
