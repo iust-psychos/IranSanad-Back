@@ -1,5 +1,7 @@
 from django.db import models
 import uuid
+from .utility import link_generator
+from django.utils import timezone
 
 
 class Document(models.Model):
@@ -35,6 +37,15 @@ class Document(models.Model):
             )
         except DocumentView.DoesNotExist:
             return None
+        
+    # in saving the document, check if link has been generated or not and if not generate it
+    def save(self, *args, **kwargs):
+        if not self.link:
+            # Generate a unique link for the document
+            self.link = link_generator(
+            f"{self.title}{timezone.now().timestamp()}"
+        )
+        super().save(*args, **kwargs)
 
 
 class DocumentView(models.Model):
