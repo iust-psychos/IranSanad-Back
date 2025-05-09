@@ -50,8 +50,12 @@ def add_dash(link: str, dash_interval: int = 3):
         link_list.insert(i-1,'-')
     
     return ''.join(link_list)
+
+def remove_dash(link: str):
+    return link.replace('-','')
         
 if __name__ == '__main__':
     test_link = link_generator('1,2,3,4')
     print(test_link)
     print(add_dash(test_link))
+    print(remove_dash(add_dash(test_link)))

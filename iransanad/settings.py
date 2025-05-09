@@ -13,6 +13,7 @@ BASE_URL = f"api/v{VERSION}"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+FRONTEND_BASE_URL ="localhost:5173"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/

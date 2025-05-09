@@ -20,6 +20,7 @@ class Document(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     doc_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     is_public = models.BooleanField(default=False)
+    public_premission_access = models.BooleanField(default=True)   #can Writers or ReadOnly change permissions
     default_access_level = models.PositiveSmallIntegerField(
         choices=ACCESS_LEVELS, default=2
     )
@@ -68,6 +69,13 @@ class AccessLevel(models.Model):
         2: "Writer",
         1: "ReadOnly",
         0: "Deny",
+    }
+    PERMISSION_MAP = {
+        "Owner": 4,
+        "Admin": 3,
+        "Writer": 2,
+        "ReadOnly": 1,
+        "Deny": 0,
     }
 
     user = models.ForeignKey("authentication.User", on_delete=models.CASCADE)
