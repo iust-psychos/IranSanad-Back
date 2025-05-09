@@ -1,7 +1,7 @@
 import logging
 from rest_framework import serializers
 from .models import *
-from .utility import link_generator
+from .utility import *
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, PermissionDenied
 
@@ -24,7 +24,6 @@ class UserSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField(method_name="get_owner_name")
     last_seen = serializers.SerializerMethodField(method_name="get_last_seen")
-
     def get_owner_name(self, obj):
         request_user = self.context.get("request").user
         if request_user and request_user.id == obj.owner.id:
@@ -74,13 +73,11 @@ class DocumentSerializer(serializers.ModelSerializer):
         document.link = generated_link
         document.save()
 
-        logger.info(f"Document created with link: {generated_link}")
-
         return document
 
 
 class UserPermissionSerializer(serializers.Serializer):
-    PERMISSION_MAP = {"Owner": 4, "Admin": 3, "Write": 2, "ReadOnly": 1, "Deny": 0}
+    PERMISSION_MAP = AccessLevel.PERMISSION_MAP
 
     user = serializers.IntegerField()
     permission = serializers.ChoiceField(choices=list(PERMISSION_MAP.keys()))
@@ -95,12 +92,13 @@ class UserPermissionSerializer(serializers.Serializer):
 class DocumentSetPermissionSerializer(serializers.Serializer):
     document = serializers.IntegerField()
     permissions = serializers.ListField(child=UserPermissionSerializer(), min_length=1)
-
+    send_email = serializers.BooleanField(write_only=True,default=False)
+    email_message = serializers.CharField(write_only=True, required=False)
     def validate_document(self, value):
         try:
             return Document.objects.get(pk=value)
         except Document.DoesNotExist:
-            raise NotFound(f"Document {value} does not exist")
+            raise NotFound(f"Document with id = '{value}' does not exist")
 
     def validate(self, attrs):
         doc = attrs["document"]
@@ -108,12 +106,15 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
 
         # Verify changer has permission to modify this document
         if not (
-            changer == doc.owner
-            or AccessLevel.objects.filter(
-                user=changer,
-                document=doc,
-                access_level__gte=self.PERMISSION_MAP["Admin"],
-            ).exists()
+            doc.public_premission_access
+            or (
+                changer == doc.owner
+                or AccessLevel.objects.filter(
+                    user=changer,
+                    document=doc,
+                    access_level__gte=self.PERMISSION_MAP["Admin"],
+                ).exists()
+            )
         ):
             raise PermissionDenied(
                 "You don't have permission to modify permissions for this document"
@@ -125,10 +126,12 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
                 permission["permission"]
             ]
 
-            # Prevent changing owner's permissions unless you're the owner
-            if user == doc.owner and changer != doc.owner:
+            # Prevent changing owner permissions
+            if user == doc.owner and perm_level !=AccessLevel.PERMISSION_MAP['Owner']:
                 raise PermissionDenied("Cannot change owner's permissions")
-
+            elif user == doc.owner and perm_level ==AccessLevel.PERMISSION_MAP['Owner']:
+                attrs.pop(permission)
+                continue
             # Prevent setting permissions higher than your own
             changer_level = (
                 UserPermissionSerializer.PERMISSION_MAP["Owner"]
@@ -146,7 +149,7 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
 class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     access_level = serializers.SerializerMethodField("get_access_level")
-
+    
     class Meta:
         model = AccessLevel
         fields = ["user", "access_level"]
@@ -154,7 +157,10 @@ class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     def get_access_level(self, access_instance):
         return AccessLevel.ACCESS_LEVELS[access_instance.access_level]
 
-
+class GetUserPermissionsSerializer(serializers.Serializer):
+    access_level =serializers.CharField()
+    can_write = serializers.BooleanField()
+    
 class DocumentLookupSerializer(serializers.Serializer):
     link = serializers.CharField(required=False)
     doc_uuid = serializers.UUIDField(required=False)
@@ -168,7 +174,7 @@ class DocumentLookupSerializer(serializers.Serializer):
             )
 
         if attrs.get("link", None):
-            document = Document.objects.filter(link=attrs["link"]).first()
+            document = Document.objects.filter(link=remove_dash(attrs["link"])).first()
         elif attrs.get("doc_uuid", None):
             document = Document.objects.filter(doc_uuid=attrs["doc_uuid"]).first()
         else:

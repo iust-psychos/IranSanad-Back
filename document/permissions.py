@@ -4,14 +4,16 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class HasAccessPermission(BasePermission):
-    PERMISSION_MAP = {
-        "Owner": 4,
-        "Admin": 3,
-        "Writer": 2,
-        "ReadOnly": 1,
-        "Deny": 0,
-    }
+    # note on permission system
+    # its currently work on document id
+    # if we agree to work on anything else,then it must change
+    # permission views and serializers also work the same way
+    # so if there was a change to the way we look for document
+    # permission views ans serializer must change as well
+
+    PERMISSION_MAP = AccessLevel.PERMISSION_MAP
 
     def __init__(self, required_level):
         self.required_level = required_level
@@ -21,11 +23,6 @@ class HasAccessPermission(BasePermission):
             document_instance = Document.objects.get(pk=document_id)
         except Document.DoesNotExist:
             return False
-
-        # try:
-        #    user_instance = User.objects.get(pk=user.pk)
-        # except User.DoesNotExist:
-        #    return False
         user_instance = user
 
         if user_instance == document_instance.owner:
@@ -42,13 +39,7 @@ class HasAccessPermission(BasePermission):
             )
             return access_level.access_level >= self.required_level
         except AccessLevel.DoesNotExist:
-            default_access = document_instance.default_access_level
-            AccessLevel.objects.create(
-                user=user_instance,
-                document=document_instance,
-                access_level=default_access,
-            )
-            return default_access >= self.required_level
+            return document_instance.default_access_level >= self.required_level
 
     def has_permission(self, request, view):
         document = view.kwargs.get("document") or request.data.get("document")
