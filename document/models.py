@@ -67,10 +67,10 @@ class DocumentUpdate(models.Model):
     )  # Timestamp for when the update was created
 
     def __str__(self):
-        return f"Update for {self.document.title} at {self.created_at}"
+        if self.document:
+            return f"Update for {self.document.title} at {self.created_at}"
+        return f"Update for document at {self.created_at}"
 
-    def __str__(self):
-        return self.title
 
 
 class AccessLevel(models.Model):
