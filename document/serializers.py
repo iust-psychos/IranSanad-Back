@@ -112,7 +112,7 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
                 or AccessLevel.objects.filter(
                     user=changer,
                     document=doc,
-                    access_level__gte=self.PERMISSION_MAP["Admin"],
+                    access_level__gte=AccessLevel.PERMISSION_MAP["Admin"],
                 ).exists()
             )
         ):

@@ -44,8 +44,14 @@ class Document(models.Model):
             # Generate a unique link for the document
             self.link = link_generator(
             f"{self.title}{timezone.now().timestamp()}"
-        )
+            )
         super().save(*args, **kwargs)
+        
+        AccessLevel.objects.create(
+            user=self.owner,
+            document=self,
+            access_level=AccessLevel.PERMISSION_MAP["Owner"],
+        )
 
 
 class DocumentView(models.Model):
