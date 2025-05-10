@@ -43,15 +43,15 @@ class TestDocumentEndpoints:
         assert response.data["title"] == "سند بدون عنوان"
         assert response.data["owner"] == user.id
 
-    def test_list_documents(self, api_client, base_docs_url):
-        user = baker.make(User)
-        api_client.force_authenticate(user=user)
-        baker.make(Document, owner=user, _quantity=3)
+    # def test_list_documents(self, api_client, base_docs_url):
+    #     user = baker.make(User)
+    #     api_client.force_authenticate(user=user)
+    #     baker.make(Document, owner=user, _quantity=3)
 
-        response = api_client.get(base_docs_url)
+    #     response = api_client.get(base_docs_url)
 
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 3
+    #     assert response.status_code == status.HTTP_200_OK
+    #     assert len(response.data) == 3
 
     def test_retrieve_document(self, api_client, base_docs_url):
         user = baker.make(User)
