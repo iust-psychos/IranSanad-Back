@@ -75,7 +75,7 @@ def suggest_next_words(input: str ) -> list:
     result = []
     for token_id in predicted_token_ids[0]:
         word = tokenizer.decode([token_id])
-        if word in ["...","?",".","!","؟"]:
+        if word in ["...","?",".","!","؟",":"]:
             continue
         else:
             result.append(word)
