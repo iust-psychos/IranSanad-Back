@@ -46,12 +46,7 @@ class DocumentViewSet(ModelViewSet):
             return self.queryset.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
-        document = serializer.save(owner=self.request.user)
-        AccessLevel.objects.create(
-            user=self.request.user,
-            document=document,
-            access_level=AccessLevel.PERMISSION_MAP["Owner"],
-        )
+        serializer.save(owner=self.request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(methods=["POST"], detail=False)
