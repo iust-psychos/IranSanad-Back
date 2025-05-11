@@ -228,3 +228,12 @@ class CommentSerializer(serializers.ModelSerializer):
     document = serializers.PrimaryKeyRelatedField(
         queryset=Document.objects.all(), write_only=True
     )
+
+class SuggestNextWordSerializer(serializers.Serializer):
+    text = serializers.CharField(min_length = 5, write_only = True)
+    suggestions = serializers.ListField(child = serializers.CharField(),read_only = True)
+    
+    def to_representation(self, suggestions):
+        return {
+            "suggestions": suggestions,
+        }

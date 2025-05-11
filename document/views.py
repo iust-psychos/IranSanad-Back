@@ -22,6 +22,8 @@ class DocumentViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == "document_lookup":
             return DocumentLookupSerializer
+        elif self.action == "suggest_next_word":
+            return SuggestNextWordSerializer
         else:
             return DocumentSerializer
 
@@ -57,12 +59,24 @@ class DocumentViewSet(ModelViewSet):
     @action(methods=["POST"], detail=False)
     def document_lookup(self, request):
         # TODO:change request type to GET
-        serializer = DocumentLookupSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         document = serializer.validated_data["document"]
         return Response(
             serializer.to_representation(document), status=status.HTTP_200_OK
         )
+        
+    @action(methods=["POST"], detail=False)
+    def suggest_next_word(self,request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        suggestions =suggest_next_words(serializer.validated_data['text'])
+        return Response(
+            serializer.to_representation(suggestions) ,status=status.HTTP_200_OK
+        )
+        
+        
+        
 
 class DocumentPermissionViewSet(GenericViewSet):
     queryset = AccessLevel.objects.all()

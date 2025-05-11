@@ -1,5 +1,8 @@
 import hashlib
+import torch
 from random import randint
+from transformers import AutoTokenizer, AutoModelForMaskedLM
+
 def link_generator(seed: str, link_length: int =12):
     """
     generate a link of lowercase alphabets with length link_length using MD5
@@ -53,9 +56,37 @@ def add_dash(link: str, dash_interval: int = 3):
 
 def remove_dash(link: str):
     return link.replace('-','')
+
+
+
+def suggest_next_words(input: str ) -> list:
+    model_name = "HooshvareLab/bert-fa-base-uncased"  # Official ParsBERT
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForMaskedLM.from_pretrained(model_name)
+    inputs = tokenizer(f'{input}[MASK]', return_tensors="pt")
+
+    with torch.no_grad():
+        outputs = model(**inputs)
         
+    predictions = outputs.logits[0, :].softmax(dim=-1)
+    masked_index = torch.where(inputs["input_ids"][0] == tokenizer.mask_token_id)[0]
+    predicted_token_ids = torch.topk(predictions[masked_index], k=5).indices.tolist()
+    
+    result = []
+    for token_id in predicted_token_ids[0]:
+        word = tokenizer.decode([token_id])
+        if word in ["...","?",".","!","؟"]:
+            continue
+        else:
+            result.append(word)
+    return result
+
 if __name__ == '__main__':
     test_link = link_generator('1,2,3,4')
     print(test_link)
     print(add_dash(test_link))
     print(remove_dash(add_dash(test_link)))
+    
+    test_text = input()
+    result = suggest_next_words(test_text)
+    print(result)
