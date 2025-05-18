@@ -116,8 +116,8 @@ class Comment(models.Model):
         related_name="comments",
     )
     text = models.TextField()
-    range_start = models.JSONField()
-    range_end = models.JSONField()
+    range_start = models.JSONField(null=True, blank=True)
+    range_end = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_resolved = models.BooleanField(default=False)
