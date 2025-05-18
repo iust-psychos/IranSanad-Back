@@ -196,12 +196,14 @@ class DocumentPermissionViewSet(GenericViewSet):
 class CommentViewSet(ModelViewSet):
 
     serializer_class = CommentSerializer
+    lookup_url_kwarg = "uuid"
 
     def get_queryset(self):
-        doc_id = self.kwargs["doc_id"]
+        doc_uuid = self.kwargs["doc_uuid"]
         is_resolved = self.request.query_params.get("is_resolved", None)
         queryset = (
-            Comment.objects.filter(document=doc_id)
+            Comment.objects.select_related("document")
+            .filter(document__doc_uuid=doc_uuid)
             .select_related("author", "resolved_by")
             .prefetch_related("commentreply_set")
         )

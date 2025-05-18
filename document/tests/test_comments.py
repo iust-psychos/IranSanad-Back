@@ -11,7 +11,7 @@ User = get_user_model()
 
 @pytest.fixture
 def user():
-    return User.objects.create_user(username="testuser", password="testpass")
+    return User.objects.create_user(id=1, username="testuser", password="testpass")
 
 
 @pytest.fixture
@@ -76,11 +76,11 @@ class TestCommentAPI:
     def test_create_comment(self, document, user):
         client = APIClient()
         client.force_authenticate(user=user)
-        url = reverse("comment-list", kwargs={"doc_id": document.id})
+        url = reverse("comment-list", kwargs={"doc_uuid": document.doc_uuid})
         data = {
             "comment_uuid": uuid.uuid4(),
-            "document": document.id,
-            "author": user.id,
+            "document_uuid": document.doc_uuid,
+            "author": user.username,
             "text": "New Comment",
             "range_start": {"type": "text", "index": 10},
             "range_end": {"type": "text", "index": 20},
@@ -89,25 +89,30 @@ class TestCommentAPI:
         assert response.status_code == status.HTTP_201_CREATED
         assert Comment.objects.count() == 1
         assert Comment.objects.first().text == "New Comment"
+        assert Comment.objects.first().author.id == 1
+        assert Comment.objects.first().document.id == document.id
 
     def test_comment_list(self, document, comment):
         client = APIClient()
         client.force_authenticate(user=document.owner)
-        url = reverse("comment-list", kwargs={"doc_id": document.id})
+        url = reverse("comment-list", kwargs={"doc_uuid": document.doc_uuid})
         response = client.get(url)
         assert response.status_code == 200
         assert len(response.data) == 1
         assert response.data[0]["text"] == comment.text
+        assert response.data[0]["author_username"] == document.owner.username
+        assert "author" not in response.data[0]
 
     def test_comment_retrieve(self, comment, user):
         client = APIClient()
         client.force_authenticate(user=user)
         url = reverse(
-            "comment-detail", kwargs={"doc_id": comment.document.id, "pk": comment.id}
+            "comment-detail",
+            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
         )
         response = client.get(url)
         assert response.data["text"] == comment.text
-        assert response.data["author"] == comment.author.id
+        assert response.data["author_username"] == comment.author.username
         assert response.data["range_start"] == comment.range_start
         assert response.data["range_end"] == comment.range_end
 
@@ -116,7 +121,7 @@ class TestCommentAPI:
         client.force_authenticate(user=user)
         url = reverse(
             "comment-detail",
-            kwargs={"doc_id": comment.document.id, "pk": comment.id},
+            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
         )
         data = {"text": "Updated Comment", "is_resolved": True}
         response = client.patch(url, data, format="json")
@@ -128,7 +133,8 @@ class TestCommentAPI:
         client = APIClient()
         client.force_authenticate(user=user)
         url = reverse(
-            "comment-detail", kwargs={"doc_id": comment.document.id, "pk": comment.id}
+            "comment-detail",
+            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
         )
         response = client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT

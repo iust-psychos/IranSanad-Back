@@ -24,6 +24,7 @@ class UserSerializer(serializers.ModelSerializer):
 class DocumentSerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField(method_name="get_owner_name")
     last_seen = serializers.SerializerMethodField(method_name="get_last_seen")
+
     def get_owner_name(self, obj):
         request_user = self.context.get("request").user
         if request_user and request_user.id == obj.owner.id:
@@ -92,8 +93,9 @@ class UserPermissionSerializer(serializers.Serializer):
 class DocumentSetPermissionSerializer(serializers.Serializer):
     document = serializers.IntegerField()
     permissions = serializers.ListField(child=UserPermissionSerializer(), min_length=1)
-    send_email = serializers.BooleanField(write_only=True,default=False)
+    send_email = serializers.BooleanField(write_only=True, default=False)
     email_message = serializers.CharField(write_only=True, required=False)
+
     def validate_document(self, value):
         try:
             return Document.objects.get(pk=value)
@@ -127,9 +129,11 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
             ]
 
             # Prevent changing owner permissions
-            if user == doc.owner and perm_level !=AccessLevel.PERMISSION_MAP['Owner']:
+            if user == doc.owner and perm_level != AccessLevel.PERMISSION_MAP["Owner"]:
                 raise PermissionDenied("Cannot change owner's permissions")
-            elif user == doc.owner and perm_level ==AccessLevel.PERMISSION_MAP['Owner']:
+            elif (
+                user == doc.owner and perm_level == AccessLevel.PERMISSION_MAP["Owner"]
+            ):
                 attrs.pop(permission)
                 continue
             # Prevent setting permissions higher than your own
@@ -149,7 +153,7 @@ class DocumentSetPermissionSerializer(serializers.Serializer):
 class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     access_level = serializers.SerializerMethodField("get_access_level")
-    
+
     class Meta:
         model = AccessLevel
         fields = ["user", "access_level"]
@@ -157,10 +161,12 @@ class DocumentGetPermissionsSerializer(serializers.ModelSerializer):
     def get_access_level(self, access_instance):
         return AccessLevel.ACCESS_LEVELS[access_instance.access_level]
 
+
 class GetUserPermissionsSerializer(serializers.Serializer):
-    access_level =serializers.CharField()
+    access_level = serializers.CharField()
     can_write = serializers.BooleanField()
-    
+
+
 class DocumentLookupSerializer(serializers.Serializer):
     link = serializers.CharField(required=False)
     doc_uuid = serializers.UUIDField(required=False)
@@ -213,18 +219,58 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = [
             "comment_uuid",
-            "document",
+            "document_uuid",
             "author",
+            "author_username",
             "text",
             "range_start",
             "range_end",
             "is_resolved",
             "resolved_by",
+        ]
+        read_only_fields = [
             "created_at",
             "updated_at",
         ]
 
+    author = serializers.CharField(source="author.username", write_only=True)
+    author_username = serializers.SerializerMethodField(read_only=True)
     comment_uuid = serializers.UUIDField(source="id")
-    document = serializers.PrimaryKeyRelatedField(
-        queryset=Document.objects.all(), write_only=True
-    )
+    document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
+
+    def get_author_username(self, obj):
+        return obj.author.username
+
+    def validate_author(self, value):
+        try:
+            author = User.objects.get(username=value)
+            return author
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Author with username '{value}' does not exist."
+            )
+
+    def validate_document(self, value):
+        try:
+            document = Document.objects.get(doc_uuid=value)
+            return document
+        except Document.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Document with uuid '{value}' does not exist."
+            )
+
+    def create(self, validated_data):
+        author_username = validated_data.pop("author")["username"]
+        documet_uuid = validated_data.pop("document")["doc_uuid"]
+        author = self.validate_author(author_username)
+        document = self.validate_document(documet_uuid)
+        validated_data["author"] = author
+        validated_data["document"] = document
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "author" in validated_data:
+            author_username = validated_data.pop("author")["username"]
+            author = self.validate_author(author_username)
+            validated_data["author"] = author
+        return super().update(instance, validated_data)
