@@ -218,7 +218,6 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            "comment_uuid",
             "document_uuid",
             "author",
             "author_username",
@@ -235,7 +234,6 @@ class CommentSerializer(serializers.ModelSerializer):
 
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
-    comment_uuid = serializers.UUIDField(source="id")
     document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
 
     def get_author_username(self, obj):

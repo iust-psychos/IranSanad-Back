@@ -196,7 +196,7 @@ class DocumentPermissionViewSet(GenericViewSet):
 class CommentViewSet(ModelViewSet):
 
     serializer_class = CommentSerializer
-    lookup_url_kwarg = "uuid"
+    lookup_field = "id"
 
     def get_queryset(self):
         doc_uuid = self.kwargs["doc_uuid"]
