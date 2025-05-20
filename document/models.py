@@ -37,22 +37,6 @@ class Document(models.Model):
             )
         except DocumentView.DoesNotExist:
             return None
-        
-    # in saving the document, check if link has been generated or not and if not generate it
-    def save(self, *args, **kwargs):
-        if not self.link:
-            # Generate a unique link for the document
-            self.link = link_generator(
-            f"{self.title}{timezone.now().timestamp()}"
-            )
-        super().save(*args, **kwargs)
-        
-        AccessLevel.objects.create(
-            user=self.owner,
-            document=self,
-            access_level=AccessLevel.PERMISSION_MAP["Owner"],
-        )
-
 
 class DocumentView(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
