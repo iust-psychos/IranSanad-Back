@@ -97,6 +97,11 @@ class DocumentUpdate(models.Model):
         else:
             return f"Unknown - {self.created_at}"
 
+    def save(self, *args, **kwargs):
+        if self.is_compacted and not self.title:
+            self.title = f"{self.created_at.strftime('%d %B %Y, %H:%M')}"
+        super().save(*args, **kwargs)
+
 
 class AccessLevel(models.Model):
     ACCESS_LEVELS = {
