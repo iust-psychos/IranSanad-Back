@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('document', '0012_alter_comment_range_end_alter_comment_range_start'),
+        ('document', '0013_documentupdate_author_documentupdate_authors_and_more'),
     ]
 
     operations = [

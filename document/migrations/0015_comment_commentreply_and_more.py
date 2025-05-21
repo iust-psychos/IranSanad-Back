@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('document', '0013_remove_commentreply_comment_and_more'),
+        ('document', '0014_remove_commentreply_comment_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
