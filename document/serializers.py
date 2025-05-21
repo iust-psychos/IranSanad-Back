@@ -207,6 +207,8 @@ class CommentReplySerializer(serializers.ModelSerializer):
             "id",
             "author",
             "author_username",
+            "comment_id",
+            "document_uuid",
             "text",
             "created_at",
             "updated_at",
@@ -214,6 +216,8 @@ class CommentReplySerializer(serializers.ModelSerializer):
 
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
+    comment_id = serializers.IntegerField(source="comment.id", write_only=True)
+    document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
 
     def get_author_username(self, obj):
         return obj.author.username
@@ -235,9 +239,7 @@ class CommentReplySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         if "author" in validated_data:
-            author_username = validated_data.pop("author")["username"]
-            author = self.validate_author(author_username)
-            validated_data["author"] = author
+            validated_data.pop("author")
         return super().update(instance, validated_data)
 
 
@@ -256,14 +258,14 @@ class CommentSerializer(serializers.ModelSerializer):
             "resolved_by",
             "created_at",
             "updated_at",
-            "comment_reply",
+            "commentreply_set",
         ]
 
 
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
     document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
-    comment_reply = CommentReplySerializer(read_only=True)
+    commentreply_set = CommentReplySerializer(read_only=True)
 
     def get_author_username(self, obj):
         return obj.author.username

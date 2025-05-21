@@ -14,5 +14,10 @@ router.register(
     DocumentUpdateViewSet,
     basename="document-update",
 )
+router.register(
+    r"commentreply",
+    CommentReplyViewSet,
+    "commentreply",
+)
 
 urlpatterns = [] + router.urls
