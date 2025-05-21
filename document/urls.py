@@ -2,6 +2,11 @@ from rest_framework.routers import DefaultRouter
 from .views import *
 
 router = DefaultRouter()
+router.register(
+    r"commentreply",
+    CommentReplyViewSet,
+    basename="comment-reply",
+)
 router.register("", DocumentViewSet, "document")
 router.register("permission", DocumentPermissionViewSet, "permission")
 router.register(
@@ -13,11 +18,6 @@ router.register(
     "document/<uuid:doc_uuid>/updates",
     DocumentUpdateViewSet,
     basename="document-update",
-)
-router.register(
-    r"commentreply",
-    CommentReplyViewSet,
-    "commentreply",
 )
 
 urlpatterns = [] + router.urls

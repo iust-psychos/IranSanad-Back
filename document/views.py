@@ -215,7 +215,12 @@ class CommentViewSet(ModelViewSet):
         return queryset
 
 
-class CommentReplyViewSet(ModelViewSet):
+class CommentReplyViewSet(
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    GenericViewSet,
+):
 
     queryset = CommentReply.objects.all()
     serializer_class = CommentReplySerializer
