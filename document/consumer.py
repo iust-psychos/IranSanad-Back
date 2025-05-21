@@ -125,7 +125,9 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             # Save update to Database
             if update:
                 document_update = await DocumentUpdate.objects.acreate(
-                    document=self.document, update_data=update
+                    document=self.document,
+                    update_data=update,
+                    author=self.user,
                 )
                 await sync_to_async(document_update.save)()
 

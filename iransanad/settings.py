@@ -2,6 +2,7 @@ from datetime import timedelta
 import os
 from pathlib import Path
 from environ import Env
+from celery.schedules import crontab
 
 env = Env()
 Env.read_env()
@@ -194,4 +195,23 @@ SWAGGER_SETTINGS = {
             'in': 'header'
         }
     },
+}
+
+
+
+
+UPDATE_COMPACTING_THRESHOLD = timedelta(minutes=10)
+
+
+# Celery settings
+CELERY_BROKER_URL = 'redis://redis:6379/1'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/1'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Tehran'
+CELERY_BEAT_SCHEDULE = {
+   'compact_document_updates': {
+       'task': 'document.tasks.compact_document_updates',
+       'schedule': crontab(minute='*/10'),  # Every 10 minutes
+   }
 }

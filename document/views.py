@@ -1,5 +1,6 @@
 from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
+from rest_framework import mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -211,3 +212,28 @@ class CommentViewSet(ModelViewSet):
             queryset = queryset.filter(is_resolved=is_resolved.lower() == "true")
         return queryset
     
+    
+    
+
+class DocumentUpdateViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    GenericViewSet
+):
+    def get_queryset(self):
+        doc_uuid = self.kwargs["doc_uuid"]
+        queryset = (
+            DocumentUpdate.objects.select_related("document")
+            .filter(document__doc_uuid=doc_uuid, is_compacted=True)
+            .select_related("author")
+            .prefetch_related("authors")
+        )
+        return queryset
+    
+    def get_serializer_class(self):
+        if self.action in ["list", "partial_update"]:
+            return CompactedDocumentUpdateSerializer
+        elif self.action == "retrieve":
+            pass
+            # TODO: implement this later

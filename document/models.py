@@ -37,22 +37,6 @@ class Document(models.Model):
             )
         except DocumentView.DoesNotExist:
             return None
-        
-    # in saving the document, check if link has been generated or not and if not generate it
-    def save(self, *args, **kwargs):
-        if not self.link:
-            # Generate a unique link for the document
-            self.link = link_generator(
-            f"{self.title}{timezone.now().timestamp()}"
-            )
-        super().save(*args, **kwargs)
-        
-        AccessLevel.objects.create(
-            user=self.owner,
-            document=self,
-            access_level=AccessLevel.PERMISSION_MAP["Owner"],
-        )
-
 
 class DocumentView(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
@@ -64,19 +48,43 @@ class DocumentView(models.Model):
 
 
 class DocumentUpdate(models.Model):
+    title = models.CharField(max_length=255, null=True, blank=True)
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name="updates"
     )
+    # for raw updates
+    author = models.ForeignKey(
+        "authentication.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="document_updates",
+    )
+    # for processed updates
+    authors = models.ManyToManyField(
+        "authentication.User",
+        blank=True,
+        related_name="compacted_document_updates",
+    )
+    processed = models.BooleanField(default=False)
+    is_compacted = models.BooleanField(default=False)
+    
+    
     update_data = models.BinaryField()  # Stores the Yjs update as binary data
     created_at = models.DateTimeField(
         auto_now_add=True
     )  # Timestamp for when the update was created
 
     def __str__(self):
-        if self.document:
-            return f"Update for {self.document.title} at {self.created_at}"
-        return f"Update for document at {self.created_at}"
+        if self.title:
+            return self.title
+        else:
+            return f"Unknown - {self.created_at}"
 
+    def save(self, *args, **kwargs):
+        if self.is_compacted and not self.title:
+            self.title = f"{self.created_at.strftime('%d %B %Y, %H:%M')}"
+        super().save(*args, **kwargs)
 
 
 class AccessLevel(models.Model):

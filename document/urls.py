@@ -9,5 +9,10 @@ router.register(
     CommentViewSet,
     basename="comment",
 )
+router.register(
+    "document/<uuid:doc_uuid>/updates",
+    DocumentUpdateViewSet,
+    basename="document-update",
+)
 
 urlpatterns = [] + router.urls

@@ -273,3 +273,35 @@ class CommentSerializer(serializers.ModelSerializer):
             author = self.validate_author(author_username)
             validated_data["author"] = author
         return super().update(instance, validated_data)
+
+
+
+
+class AuthorInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("username", "first_name", "last_name")
+
+
+class CompactedDocumentUpdateSerializer(serializers.ModelSerializer):
+    authors = AuthorInfoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = DocumentUpdate
+        fields = [
+            "id",
+            "title",
+            "document",
+            "authors",
+            "processed",
+            "is_compacted",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "document",
+            "authors",
+            "processed",
+            "is_compacted",
+            "created_at",
+        ]
