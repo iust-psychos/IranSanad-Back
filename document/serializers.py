@@ -206,12 +206,39 @@ class CommentReplySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "author",
+            "author_username",
             "text",
             "created_at",
             "updated_at",
         ]
 
-    author = UserSerializer(read_only=True)
+    author = serializers.CharField(source="author.username", write_only=True)
+    author_username = serializers.SerializerMethodField(read_only=True)
+
+    def get_author_username(self, obj):
+        return obj.author.username
+
+    def validate_author(self, value):
+        try:
+            author = User.objects.get(username=value)
+            return author
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                f"Author with username '{value}' does not exist."
+            )
+
+    def create(self, validated_data):
+        author_username = validated_data.pop("author")["username"]
+        author = self.validate_author(author_username)
+        validated_data["author"] = author
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "author" in validated_data:
+            author_username = validated_data.pop("author")["username"]
+            author = self.validate_author(author_username)
+            validated_data["author"] = author
+        return super().update(instance, validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -227,15 +254,16 @@ class CommentSerializer(serializers.ModelSerializer):
             "range_end",
             "is_resolved",
             "resolved_by",
-        ]
-        read_only_fields = [
             "created_at",
             "updated_at",
+            "comment_reply",
         ]
+
 
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
     document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
+    comment_reply = CommentReplySerializer(read_only=True)
 
     def get_author_username(self, obj):
         return obj.author.username
@@ -273,8 +301,6 @@ class CommentSerializer(serializers.ModelSerializer):
             author = self.validate_author(author_username)
             validated_data["author"] = author
         return super().update(instance, validated_data)
-
-
 
 
 class AuthorInfoSerializer(serializers.ModelSerializer):
