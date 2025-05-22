@@ -34,7 +34,6 @@ def comment(document, user):
 class TestCommentModels:
     def test_comment_creation(self, document, user):
         comment = Comment.objects.create(
-            id=uuid.uuid4(),
             document=document,
             author=user,
             text="Test Comment",
@@ -64,7 +63,7 @@ class TestCommentModels:
 
     def test_commentreply_creation(self, comment, user):
         commentreply = CommentReply.objects.create(
-            id=uuid.uuid4(), comment=comment, author=user, text="Test Reply"
+            comment=comment, author=user, text="Test Reply"
         )
         assert commentreply.comment == comment
         assert commentreply.author == user
@@ -78,7 +77,6 @@ class TestCommentAPI:
         client.force_authenticate(user=user)
         url = reverse("comment-list", kwargs={"doc_uuid": document.doc_uuid})
         data = {
-            "comment_uuid": uuid.uuid4(),
             "document_uuid": document.doc_uuid,
             "author": user.username,
             "text": "New Comment",
@@ -108,7 +106,7 @@ class TestCommentAPI:
         client.force_authenticate(user=user)
         url = reverse(
             "comment-detail",
-            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
+            kwargs={"doc_uuid": comment.document.doc_uuid, "id": comment.id},
         )
         response = client.get(url)
         assert response.data["text"] == comment.text
@@ -121,7 +119,7 @@ class TestCommentAPI:
         client.force_authenticate(user=user)
         url = reverse(
             "comment-detail",
-            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
+            kwargs={"doc_uuid": comment.document.doc_uuid, "id": comment.id},
         )
         data = {"text": "Updated Comment", "is_resolved": True}
         response = client.patch(url, data, format="json")
@@ -134,7 +132,7 @@ class TestCommentAPI:
         client.force_authenticate(user=user)
         url = reverse(
             "comment-detail",
-            kwargs={"doc_uuid": comment.document.doc_uuid, "uuid": comment.id},
+            kwargs={"doc_uuid": comment.document.doc_uuid, "id": comment.id},
         )
         response = client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT

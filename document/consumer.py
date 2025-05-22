@@ -16,6 +16,7 @@ from ypy_websocket.yutils import (
     YSyncMessageType,
     read_message,
 )
+from pprint import pprint
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         )
 
         self.ydoc = YDoc()
+
         document_updates = sync_to_async(
             lambda: list(
                 DocumentUpdate.objects.filter(document=self.document)
@@ -55,7 +57,6 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             )
         )
         document_updates = await document_updates()
-        logger.info(len(document_updates))
         for document_update in document_updates:
             update_data = (
                 bytes(document_update.update_data)
@@ -71,22 +72,37 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 apply_update(self.ydoc, update_data)
             except Exception as e:
                 logger.error(f"Error applying update: {e}")
+
         state = encode_state_vector(self.ydoc)
         msg = create_sync_step1_message(state)
         await self.send(bytes_data=msg)
 
-    async def send_message(self, bytes_data):
-        if not bytes_data:
-            return
+    async def send_message(self, text_data=None, bytes_data=None):
+        if text_data:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "comment_sync",
+                    "text_data": text_data,
+                    "sender_channel": self.channel_name,
+                },
+            )
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "yjs_update",
-                "bytes": bytes_data,
-                "sender_channel": self.channel_name,
-            },
-        )
+        if bytes_data:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "yjs_update",
+                    "bytes": bytes_data,
+                    "sender_channel": self.channel_name,
+                },
+            )
+
+    async def comment_sync(self, event):
+        if event["sender_channel"] == self.channel_name:
+            return  # Ignore updates sent by the sender
+
+        await self.send(text_data=event["text_data"])
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -101,19 +117,19 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             await DocumentView.objects.acreate(document=self.document, user=self.user)
 
     async def receive(self, text_data=None, bytes_data=None):
-        # logger.info("Received message.")
-        await self.send_message(bytes_data)
-        
-        update = await self.process_message(bytes_data, self.ydoc)
-        # # Save update to Database
-        if update:
-            document_update = await DocumentUpdate.objects.acreate(
-                document=self.document,
-                update_data=update,
-                author=self.user,
-            )
-            await sync_to_async(document_update.save)()
-        
+        if text_data:
+            await self.send_message(text_data=text_data)
+        if bytes_data:
+            await self.send_message(bytes_data=bytes_data)
+            update = await self.process_message(bytes_data, self.ydoc)
+            # Save update to Database
+            if update:
+                document_update = await DocumentUpdate.objects.acreate(
+                    document=self.document,
+                    update_data=update,
+                    author=self.user,
+                )
+                await sync_to_async(document_update.save)()
 
     async def process_message(self, message: bytes, ydoc: YDoc):
         if message[0] == YMessageType.SYNC:
@@ -123,7 +139,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 state = read_message(msg)
                 update = encode_state_as_update(ydoc, state)
                 reply = create_sync_step2_message(update)
-                await self.send_message(reply)
+                await self.send_message(bytes_data=reply)
             elif message_type in (
                 YSyncMessageType.SYNC_STEP2,
                 YSyncMessageType.SYNC_UPDATE,
