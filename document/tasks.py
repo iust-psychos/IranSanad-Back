@@ -77,10 +77,15 @@ def process_session(session):
         )
         compacted.authors.set(authors)
         compacted.save()
-        session_updates = DocumentUpdate.objects.filter(id__in=[u.id for u in session])
-        session_updates.update(processed=True)
-        session_updates.delete()
-
+        session_update_ids = [u.id for u in session]
+        logger.info(
+            f"Compacted {len(session)} updates into session ID: {compacted.id} for document ID: {session[0].document_id}"
+        )
+        DocumentUpdate.objects.filter(id__in=session_update_ids).update(processed=True)
+        DocumentUpdate.objects.filter(id__in=session_update_ids).delete()
+        logger.info(
+            f"Deleted {len(session)} updates after compaction for document ID: {session[0].document_id}"
+        )
 
 @shared_task
 def compact_document_updates():
@@ -89,7 +94,9 @@ def compact_document_updates():
         .filter(processed=False, is_compacted=False)
         .order_by('document_id', 'created_at')
     )
-    
+    logger.info(f"Compacting {len(updates)} document updates into sessions.")
     for doc_id, doc_updates in groupby(updates, key=lambda u: u.document_id):
+        logger.info(f"Processing document ID: {doc_id} with {len(list(doc_updates))} updates.")
         for session in split_updates_by_time_gap(list(doc_updates)):
             process_session(session)
+    logger.info(f"Compacted {len(updates)} document updates into sessions.")
