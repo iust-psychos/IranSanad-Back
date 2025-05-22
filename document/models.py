@@ -115,7 +115,6 @@ class AccessLevel(models.Model):
 
 
 class Comment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
     author = models.ForeignKey(
         "authentication.User",
@@ -148,7 +147,6 @@ class Comment(models.Model):
 
 
 class CommentReply(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
     author = models.ForeignKey(
         "authentication.User", on_delete=models.SET_NULL, null=True

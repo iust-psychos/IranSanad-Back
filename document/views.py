@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework import mixins
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
@@ -60,6 +60,7 @@ class DocumentViewSet(ModelViewSet):
             serializer.to_representation(document), status=status.HTTP_200_OK
         )
 
+
 class DocumentPermissionViewSet(GenericViewSet):
     queryset = AccessLevel.objects.all()
     permission_classes = [IsAuthenticated]
@@ -99,7 +100,9 @@ class DocumentPermissionViewSet(GenericViewSet):
                     f"{user.username} شما را به مشارکت در سند {doc.title} دعوت کرده"
                 )
                 message = (
-                    data.get("email_message",None) if data.get("email_message",None) else default_message
+                    data.get("email_message", None)
+                    if data.get("email_message", None)
+                    else default_message
                 )
                 document_url = f"{settings.FRONTEND_BASE_URL}/{add_dash(doc.link)}"
                 message += f"\n\nلینک ورود به سند: {document_url}"
@@ -191,13 +194,12 @@ class DocumentPermissionViewSet(GenericViewSet):
         }
         serializer = self.get_serializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+
 
 class CommentViewSet(ModelViewSet):
 
     serializer_class = CommentSerializer
-    lookup_url_kwarg = "uuid"
+    lookup_field = "id"
 
     def get_queryset(self):
         doc_uuid = self.kwargs["doc_uuid"]
@@ -211,15 +213,24 @@ class CommentViewSet(ModelViewSet):
         if is_resolved is not None:
             queryset = queryset.filter(is_resolved=is_resolved.lower() == "true")
         return queryset
-    
-    
-    
+
+
+class CommentReplyViewSet(
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    GenericViewSet,
+):
+
+    queryset = CommentReply.objects.all()
+    serializer_class = CommentReplySerializer
+
 
 class DocumentUpdateViewSet(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
     mixins.ListModelMixin,
-    GenericViewSet
+    GenericViewSet,
 ):
     def get_queryset(self):
         doc_uuid = self.kwargs["doc_uuid"]
@@ -230,7 +241,7 @@ class DocumentUpdateViewSet(
             .prefetch_related("authors")
         )
         return queryset
-    
+
     def get_serializer_class(self):
         if self.action in ["list", "partial_update"]:
             return CompactedDocumentUpdateSerializer
