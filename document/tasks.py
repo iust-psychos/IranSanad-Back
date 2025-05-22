@@ -23,6 +23,9 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
     Yields:
         List: Lists of updates that are close together in time, each representing a session.
     """
+    logger.info(
+        f"Splitting updates into sessions with a time threshold of {time_threshold}."
+    )
     session = []
     last_time = None
     for update in updates:
@@ -30,14 +33,28 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
             session.append(update)
         else:
             if (update.created_at - last_time) > time_threshold:
+                logger.info(
+                    f"* Time gap detected: {update.created_at - last_time} exceeds threshold of {time_threshold}."
+                )
                 yield session
                 session = [update]
             else:
+                logger.info(
+                    f"# Adding update to session: {update.created_at - last_time} within threshold of {time_threshold}."
+                )
                 session.append(update)
         last_time = update.created_at
     if session and session[-1].created_at < timezone.now() - time_threshold:
         # Only yield the session if the last update is older than the threshold
         yield session
+    elif session:
+        logger.info(
+            f"~ Last session is too recent: {session[-1].created_at} within threshold of {time_threshold}. Not yielding.({timezone.now() - time_threshold} < {session[-1].created_at})"
+        )
+    else:
+        logger.info(
+            f"~ No updates in the session. Last time: {last_time}, current time: {timezone.now()}"
+        )
         
 
 def process_session(session):
