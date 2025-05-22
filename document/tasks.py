@@ -77,8 +77,9 @@ def process_session(session):
         )
         compacted.authors.set(authors)
         compacted.save()
-        DocumentUpdate.objects.filter(id__in=[u.id for u in session]).delete()
-        
+        session_updates = DocumentUpdate.objects.filter(id__in=[u.id for u in session])
+        session_updates.update(processed=True)
+        session_updates.delete()
 
 
 @shared_task
