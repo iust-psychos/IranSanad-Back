@@ -47,6 +47,11 @@ def process_session(session):
     Args:
         session (List): A list of update objects representing a session.
     """
+    if not session:
+        return
+    logger.info(
+        f"! Processing session with {len(session)} updates for document ID: {session[0].document_id}"
+    )
     ydoc = YDoc()
     authors = set(u.author for u in session if u.author)
     
