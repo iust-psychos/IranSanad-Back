@@ -207,6 +207,8 @@ class CommentReplySerializer(serializers.ModelSerializer):
             "id",
             "author",
             "author_username",
+            "author_firstname",
+            "author_lastname",
             "comment",
             "text",
             "created_at",
@@ -215,9 +217,17 @@ class CommentReplySerializer(serializers.ModelSerializer):
 
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
+    author_firstname = serializers.SerializerMethodField(read_only=True)
+    author_lastname = serializers.SerializerMethodField(read_only=True)
 
     def get_author_username(self, obj):
         return obj.author.username
+
+    def get_author_firstname(self, obj):
+        return obj.author.first_name
+
+    def get_author_lastname(self, obj):
+        return obj.author.last_name
 
     def validate_author(self, value):
         try:
@@ -248,6 +258,8 @@ class CommentSerializer(serializers.ModelSerializer):
             "document_uuid",
             "author",
             "author_username",
+            "author_firstname",
+            "author_lastname",
             "text",
             "range_start",
             "range_end",
@@ -258,11 +270,18 @@ class CommentSerializer(serializers.ModelSerializer):
             "commentreply_set",
         ]
 
-
     author = serializers.CharField(source="author.username", write_only=True)
     author_username = serializers.SerializerMethodField(read_only=True)
+    author_firstname = serializers.SerializerMethodField(read_only=True)
+    author_lastname = serializers.SerializerMethodField(read_only=True)
     document_uuid = serializers.UUIDField(source="document.doc_uuid", write_only=True)
     commentreply_set = CommentReplySerializer(read_only=True, many=True)
+
+    def get_author_firstname(self, obj):
+        return obj.author.first_name
+
+    def get_author_lastname(self, obj):
+        return obj.author.last_name
 
     def get_author_username(self, obj):
         return obj.author.username
