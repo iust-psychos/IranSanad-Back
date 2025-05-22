@@ -47,9 +47,13 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
     if session and session[-1].created_at < timezone.now() - time_threshold:
         # Only yield the session if the last update is older than the threshold
         yield session
-    else:
+    elif session:
         logger.info(
             f"~ Last session is too recent: {session[-1].created_at} within threshold of {time_threshold}. Not yielding.({timezone.now() - time_threshold} < {session[-1].created_at})"
+        )
+    else:
+        logger.info(
+            f"~ No updates in the session. Last time: {last_time}, current time: {timezone.now()}"
         )
         
 
