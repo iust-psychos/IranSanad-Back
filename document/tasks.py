@@ -129,7 +129,7 @@ def process_session(session):
             update_data=compacted_delta,
             is_compacted=True,
             processed=True,
-            # created_at= session[-1].created_at, #TODO: Check if this is needed
+            created_at= session[-1].created_at + timedelta(seconds=1),
         )
         compacted.authors.set(authors)
         compacted.save()
