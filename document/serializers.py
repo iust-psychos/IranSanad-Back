@@ -4,6 +4,7 @@ from .models import *
 from .utility import *
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, PermissionDenied
+from y_py import YDoc, apply_update, encode_state_as_update
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -349,3 +350,58 @@ class CompactedDocumentUpdateSerializer(serializers.ModelSerializer):
             "is_compacted",
             "created_at",
         ]
+        
+        
+class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
+    authors = AuthorInfoSerializer(many=True, read_only=True)
+
+    before_update = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DocumentUpdate
+        fields = [
+            "id",
+            "title",
+            "document",
+            "authors",
+            "processed",
+            "is_compacted",
+            "created_at",
+            "before_update",
+            "update_data",
+        ]
+        read_only_fields = [
+            "id",
+            "document",
+            "authors",
+            "processed",
+            "is_compacted",
+            "created_at",
+            "update_data",
+        ]
+        
+    def get_before_update(self, obj):
+        updates = DocumentUpdate.objects.filter(
+            document=obj.document,
+            created_at__lt=obj.created_at,
+            is_compacted=True
+        ).order_by("created_at")
+        ydoc = YDoc()
+        for update in updates:
+            update_bytes = (
+                bytes(update.update_data)
+                if isinstance(update.update_data, memoryview)
+                else update.update_data
+            )
+            if not isinstance(update_bytes, bytes):
+                logger.error(
+                    f"Invalid update_data type: {type(update_bytes)}, value: {update_bytes}"
+                )
+                continue
+            try:
+                apply_update(ydoc, update_bytes)
+            except Exception as e: 
+                logger.error(f"Error applying update: {e}")
+                continue
+        return encode_state_as_update(ydoc)
+    

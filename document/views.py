@@ -246,5 +246,4 @@ class DocumentUpdateViewSet(
         if self.action in ["list", "partial_update"]:
             return CompactedDocumentUpdateSerializer
         elif self.action == "retrieve":
-            pass
-            # TODO: implement this later
+            return CompactedDocumentUpdateSerializerRetrieve
