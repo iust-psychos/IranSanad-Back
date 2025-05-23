@@ -200,7 +200,7 @@ SWAGGER_SETTINGS = {
 
 
 
-UPDATE_COMPACTING_THRESHOLD = timedelta(minutes=10)
+UPDATE_COMPACTING_THRESHOLD = timedelta(minutes=6)
 
 
 # Celery settings
@@ -212,6 +212,6 @@ CELERY_TIMEZONE = 'Asia/Tehran'
 CELERY_BEAT_SCHEDULE = {
    'compact_document_updates': {
        'task': 'document.tasks.compact_document_updates',
-       'schedule': crontab(minute='*/10'),  # Every 10 minutes
+       'schedule': crontab(minute='*/5'),  # Every 10 minutes
    }
 }
