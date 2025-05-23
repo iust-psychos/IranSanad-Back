@@ -68,7 +68,21 @@ def get_ydoc(document_id):
     ydoc = YDoc()
     updates = DocumentUpdate.objects.filter(document_id=document_id, processed=True)
     for update in updates:
-        apply_update(ydoc, update.update_data)
+        update_bytes = (
+            bytes(update.update_data)
+            if isinstance(update.update_data, memoryview)
+            else update.update_data
+        )
+        if not isinstance(update_bytes, bytes):
+            logger.error(
+                f"Invalid update_data type: {type(update_bytes)}, value: {update_bytes}"
+            )
+            continue
+        try:
+            apply_update(ydoc, update_bytes)
+        except Exception as e: 
+            logger.error(f"Error applying update: {e}")
+            continue
     return ydoc
 
 
