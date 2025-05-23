@@ -37,8 +37,8 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
                     f"* Time gap detected: {update.created_at - last_time} exceeds threshold of {time_threshold}."
                 )
                 yield session
-                session = [update]
-                session.append(update)
+                session = []
+            session.append(update)
         last_time = update.created_at
     if session and session[-1].created_at < timezone.now() - time_threshold:
         logger.info(
