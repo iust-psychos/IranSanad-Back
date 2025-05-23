@@ -1,4 +1,5 @@
 import logging
+import base64
 from rest_framework import serializers
 from .models import *
 from .utility import *
@@ -350,13 +351,13 @@ class CompactedDocumentUpdateSerializer(serializers.ModelSerializer):
             "is_compacted",
             "created_at",
         ]
-        
-        
+
+
 class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
     authors = AuthorInfoSerializer(many=True, read_only=True)
 
     before_update = serializers.SerializerMethodField()
-    
+    delta = serializers.SerializerMethodField()
     class Meta:
         model = DocumentUpdate
         fields = [
@@ -368,7 +369,7 @@ class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
             "is_compacted",
             "created_at",
             "before_update",
-            "update_data",
+            "delta",
         ]
         read_only_fields = [
             "id",
@@ -377,14 +378,15 @@ class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
             "processed",
             "is_compacted",
             "created_at",
-            "update_data",
+            "before_update",
+            "delta",
         ]
-        
+
     def get_before_update(self, obj):
         updates = DocumentUpdate.objects.filter(
             document=obj.document,
             created_at__lt=obj.created_at,
-            is_compacted=True
+            is_compacted=True,
         ).order_by("created_at")
         ydoc = YDoc()
         for update in updates:
@@ -400,8 +402,16 @@ class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
                 continue
             try:
                 apply_update(ydoc, update_bytes)
-            except Exception as e: 
+            except Exception as e:
                 logger.error(f"Error applying update: {e}")
                 continue
-        return encode_state_as_update(ydoc)
+        update_bytes = encode_state_as_update(ydoc)
+        return base64.b64encode(update_bytes).decode("utf-8")
     
+    def get_delta(self, obj):
+        byte_data = (
+            bytes(obj.update_data)
+            if isinstance(obj.update_data, memoryview)
+            else obj.update_data
+        )
+        return base64.b64encode(byte_data).decode("utf-8")
