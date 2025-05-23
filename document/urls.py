@@ -1,6 +1,8 @@
 from rest_framework.routers import DefaultRouter
 from .views import *
 
+UUID_REGEX = r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+
 router = DefaultRouter()
 router.register(
     r"commentreply",
@@ -10,12 +12,12 @@ router.register(
 router.register("", DocumentViewSet, "document")
 router.register("permission", DocumentPermissionViewSet, "permission")
 router.register(
-    r"document/(?P<doc_uuid>[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/comment",
+    fr"document/(?P<doc_uuid>{UUID_REGEX})/comment",
     CommentViewSet,
     basename="comment",
 )
 router.register(
-    "document/<uuid:doc_uuid>/updates",
+    fr"document/(?P<doc_uuid>{UUID_REGEX})/updates",
     DocumentUpdateViewSet,
     basename="document-update",
 )
