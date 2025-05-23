@@ -118,7 +118,8 @@ def compact_document_updates():
     )
     logger.info(f"Compacting {len(updates)} document updates into sessions.")
     for doc_id, doc_updates in groupby(updates, key=lambda u: u.document_id):
-        logger.info(f"Processing document ID: {doc_id} with {len(list(doc_updates))} updates.")
-        for session in split_updates_by_time_gap(list(doc_updates)):
+        doc_updates_list = list(doc_updates)
+        logger.info(f"Processing document ID: {doc_id} with {len(doc_updates_list)} updates.")
+        for session in split_updates_by_time_gap(doc_updates_list):
             process_session(session)
     logger.info(f"Compacted {len(updates)} document updates into sessions.")
