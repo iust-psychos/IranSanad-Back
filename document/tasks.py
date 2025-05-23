@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
 from celery import shared_task
-from y_py import YDoc, apply_update, encode_state_as_update
+from y_py import YDoc, apply_update, encode_state_as_update, encode_state_vector
 from .models import DocumentUpdate
 
 logger = logging.getLogger(__name__)
@@ -38,14 +38,12 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
                 )
                 yield session
                 session = [update]
-            else:
-                logger.info(
-                    f"# Adding update to session: {update.created_at - last_time} within threshold of {time_threshold}."
-                )
                 session.append(update)
         last_time = update.created_at
     if session and session[-1].created_at < timezone.now() - time_threshold:
-        # Only yield the session if the last update is older than the threshold
+        logger.info(
+            f"~ Last session is old enough: {session[-1].created_at} older than threshold of {time_threshold}. Yielding."
+        )
         yield session
     elif session:
         logger.info(
@@ -56,6 +54,23 @@ def split_updates_by_time_gap(updates, time_threshold=TIME_THRESHOLD):
             f"~ No updates in the session. Last time: {last_time}, current time: {timezone.now()}"
         )
         
+
+def get_ydoc(document_id):
+    """
+    Retrieves the YDoc updates and apply them to a new YDoc instance.
+    
+    Args:
+        document_id (int): The ID of the document to retrieve updates for.
+
+    Returns:
+        YDoc: A new YDoc instance with the applied updates.
+    """
+    ydoc = YDoc()
+    updates = DocumentUpdate.objects.filter(document_id=document_id, processed=True)
+    for update in updates:
+        apply_update(ydoc, update.update_data)
+    return ydoc
+
 
 def process_session(session):
     """
@@ -69,7 +84,11 @@ def process_session(session):
     logger.info(
         f"! Processing session with {len(session)} updates for document ID: {session[0].document_id}"
     )
-    ydoc = YDoc()
+    local_doc = get_ydoc(session[0].document_id)
+    local_sv = encode_state_vector(local_doc)
+    
+    remote_doc = get_ydoc(session[0].document_id)
+    
     authors = set(u.author for u in session if u.author)
     
     for document_update in session:
@@ -84,18 +103,19 @@ def process_session(session):
             )
             continue
         try:
-            apply_update(ydoc, update_data)
+            apply_update(remote_doc, update_data)
         except Exception as e:
             logger.error(f"Error applying update: {e}")
             continue
-    compacted_data = encode_state_as_update(ydoc)
+    compacted_delta = encode_state_as_update(remote_doc, local_sv)
 
     with transaction.atomic():
         compacted = DocumentUpdate.objects.create(
             document_id=session[0].document_id,
-            update_data=compacted_data,
+            update_data=compacted_delta,
             is_compacted=True,
-            processed=True
+            processed=True,
+            # created_at= session[-1].created_at, #TODO: Check if this is needed
         )
         compacted.authors.set(authors)
         compacted.save()
@@ -106,7 +126,7 @@ def process_session(session):
         DocumentUpdate.objects.filter(id__in=session_update_ids).update(processed=True)
         DocumentUpdate.objects.filter(id__in=session_update_ids).delete()
         logger.info(
-            f"Deleted {len(session)} updates after compaction for document ID: {session[0].document_id}"
+            f"!- Deleted {len(session)} updates after compaction for document ID: {session[0].document_id}"
         )
 
 @shared_task
@@ -116,10 +136,9 @@ def compact_document_updates():
         .filter(processed=False, is_compacted=False)
         .order_by('document_id', 'created_at')
     )
-    logger.info(f"Compacting {len(updates)} document updates into sessions.")
+    logger.info(f"[][][] Processing {len(updates)} document updates into sessions.")
     for doc_id, doc_updates in groupby(updates, key=lambda u: u.document_id):
         doc_updates_list = list(doc_updates)
         logger.info(f"Processing document ID: {doc_id} with {len(doc_updates_list)} updates.")
         for session in split_updates_by_time_gap(doc_updates_list):
             process_session(session)
-    logger.info(f"Compacted {len(updates)} document updates into sessions.")
