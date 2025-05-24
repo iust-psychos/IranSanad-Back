@@ -216,3 +216,5 @@ CELERY_BEAT_SCHEDULE = {
        'schedule': crontab(minute='*/5'),  # Every 10 minutes
    }
 }
+
+GROQ_API_KEY = env("GROQ_API_KEY")
