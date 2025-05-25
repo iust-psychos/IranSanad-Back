@@ -17,6 +17,9 @@ from ypy_websocket.yutils import (
     read_message,
 )
 from pprint import pprint
+from openai import OpenAI
+from iransanad.settings import AI_MODEL, AIMODEL_KEY
+from document.spell_grammar_checker.spell_checker import SpellGrammarChecker
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +79,14 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         state = encode_state_vector(self.ydoc)
         msg = create_sync_step1_message(state)
         await self.send(bytes_data=msg)
+        self.spellgrammarcheck = SpellGrammarChecker(AIMODEL_KEY, AI_MODEL)
 
     async def send_message(self, text_data=None, bytes_data=None):
         if text_data:
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    "type": "comment_sync",
+                    "type": "spell_check",
                     "text_data": text_data,
                     "sender_channel": self.channel_name,
                 },
@@ -97,6 +101,10 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     "sender_channel": self.channel_name,
                 },
             )
+
+    async def spell_check(self, event):
+
+        await self.send(text_data=event["text_data"])
 
     async def comment_sync(self, event):
         if event["sender_channel"] == self.channel_name:
@@ -118,7 +126,30 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            await self.send_message(text_data=text_data)
+            if eval(text_data)["type"] in ["SpellChecker", "GrammarChecker"]:
+                # ydoc_text = ' '.join(self.ydoc.get_array('root'))
+                # spell_checked_data = self.spellgrammarcheck.spell_check(ydoc_text)
+                # grammar_checked_data = self.spellgrammarcheck.grammar_check(ydoc_text)
+                # merged_data = "{" + f"\"Spell\":{spell_checked_data},"+\
+                #             f"\"Grammar\":{grammar_checked_data}"+\
+                #             "}"
+                # await self.send_message(text_data=merged_data)
+
+                data1 = "This is jost an exomple."
+                data2 = "چند نفر وارد اتاق شد. اتاق بسیار یزرگ بود."
+                spell_checked_data = self.spellgrammarcheck.spell_check(data1)
+                grammar_checked_data = self.spellgrammarcheck.grammar_check(data2)
+                merged_data = (
+                    "{"
+                    + f'"Spell":{spell_checked_data},'
+                    + f'"Grammar":{grammar_checked_data}'
+                    + "}"
+                )
+                await self.send_message(text_data=merged_data)
+
+            else:
+                await self.send_message(text_data=text_data)
+
         if bytes_data:
             await self.send_message(bytes_data=bytes_data)
             update = await self.process_message(bytes_data, self.ydoc)
