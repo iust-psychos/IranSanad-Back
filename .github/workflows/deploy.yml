@@ -31,7 +31,7 @@ jobs:
           cd docker/
           git pull origin main
           docker compose down
-          docker compose pull
+          sudo sed -i '1i nameserver 78.157.42.101\nnameserver 78.157.42.100' /etc/resolv.conf
           docker compose up -d --build
           docker system prune -f
         EOF
