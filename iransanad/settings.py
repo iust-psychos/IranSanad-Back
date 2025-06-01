@@ -39,9 +39,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_yasg",
     # Local apps
-    "core",
-    "authentication",
-    "document",
+    'core',
+    'authentication',
+    'document',
+    'stt',
 ]
 
 
@@ -202,5 +203,4 @@ CELERY_BEAT_SCHEDULE = {
     }
 }
 
-AIMODEL_KEY = env("AIMODEL_API_KEY")
-AI_MODEL = env("AI_MODEL")
+GROQ_API_KEY = env("GROQ_API_KEY")

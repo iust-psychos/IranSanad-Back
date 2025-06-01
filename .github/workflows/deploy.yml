@@ -1,0 +1,37 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    # Install SSH key
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+
+    # Set up environment variables
+    - name: Set up environment
+      run: |
+        echo "DEPLOY_SERVER=${{ secrets.SSH_HOST }}" >> $GITHUB_ENV
+        echo "DEPLOY_USER=${{ secrets.SSH_USER }}" >> $GITHUB_ENV
+
+    # Deployment commands
+    - name: Deploy to Server
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          cd  ${{ secrets.PROJECT_PATH }}
+          cd docker/
+          git pull origin main
+          docker compose down
+          echo 'iransanad' | sudo -S sed -i '1i nameserver 78.157.42.101\nnameserver 78.157.42.100' /etc/resolv.conf
+          docker compose up -d --build
+          docker system prune -f
+        EOF

@@ -41,7 +41,7 @@ def test_document(test_users):
 
 @pytest.mark.django_db
 class TestDocumentPermissionEndpoints:
-w    def test_set_permission_by_owner(self, api_client, base_permission_url, test_users, test_document):
+    def test_set_permission_by_owner(self, api_client, base_permission_url, test_users, test_document):
         api_client.force_authenticate(user=test_users['owner'])
         data = {
             'document': test_document.id,
