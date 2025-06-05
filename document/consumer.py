@@ -4,6 +4,7 @@ import django
 
 django.setup()
 from django.utils import timezone
+from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
 from y_py import YDoc, apply_update, encode_state_as_update, encode_state_vector
 from asgiref.sync import sync_to_async
@@ -16,12 +17,11 @@ from ypy_websocket.yutils import (
     YSyncMessageType,
     read_message,
 )
-from pprint import pprint
-from openai import OpenAI
-from iransanad.settings import AI_MODEL, AIMODEL_KEY
-from document.spell_grammar_checker.spell_checker import SpellGrammarChecker
+from document.spell_grammar_checker.spell_grammar_checker import SpellGrammarChecker
 
 logger = logging.getLogger(__name__)
+
+GROQ_API_KEY = settings.GROQ_API_KEY
 
 
 class DocumentConsumer(AsyncWebsocketConsumer):
@@ -79,7 +79,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         state = encode_state_vector(self.ydoc)
         msg = create_sync_step1_message(state)
         await self.send(bytes_data=msg)
-        self.spellgrammarcheck = SpellGrammarChecker(AIMODEL_KEY, AI_MODEL)
+        AI_MODEL = "llama-3.3-70b-versatile"
+        self.spellgrammarcheck = SpellGrammarChecker(GROQ_API_KEY, AI_MODEL)
 
     async def send_message(self, text_data=None, bytes_data=None):
         if text_data:
@@ -126,23 +127,15 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            if eval(text_data)["type"] in ["SpellChecker", "GrammarChecker"]:
-                # ydoc_text = ' '.join(self.ydoc.get_array('root'))
-                # spell_checked_data = self.spellgrammarcheck.spell_check(ydoc_text)
-                # grammar_checked_data = self.spellgrammarcheck.grammar_check(ydoc_text)
-                # merged_data = "{" + f"\"Spell\":{spell_checked_data},"+\
-                #             f"\"Grammar\":{grammar_checked_data}"+\
-                #             "}"
-                # await self.send_message(text_data=merged_data)
-
-                data1 = "This is jost an exomple."
-                data2 = "چند نفر وارد اتاق شد. اتاق بسیار یزرگ بود."
-                spell_checked_data = self.spellgrammarcheck.spell_check(data1)
-                grammar_checked_data = self.spellgrammarcheck.grammar_check(data2)
+            if eval(text_data)["type"] in ["SpellCheck", "GrammarCheck"]:
+                ydoc_text = " ".join(self.ydoc.get_array("root"))
+                logger.info(ydoc_text)
+                spell_checked_data = self.spellgrammarcheck.spell_check(ydoc_text)
+                grammar_checked_data = self.spellgrammarcheck.grammar_check(ydoc_text)
                 merged_data = (
                     "{"
-                    + f'"Spell":{spell_checked_data},'
-                    + f'"Grammar":{grammar_checked_data}'
+                    + f'"Spell":{await spell_checked_data},'
+                    + f'"Grammar":{await grammar_checked_data}'
                     + "}"
                 )
                 await self.send_message(text_data=merged_data)
