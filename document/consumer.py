@@ -4,6 +4,7 @@ import django
 
 django.setup()
 from django.utils import timezone
+from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
 from y_py import YDoc, apply_update, encode_state_as_update, encode_state_vector
 from asgiref.sync import sync_to_async
@@ -16,9 +17,11 @@ from ypy_websocket.yutils import (
     YSyncMessageType,
     read_message,
 )
-from pprint import pprint
+from document.spell_grammar_checker.spell_grammar_checker import SpellGrammarChecker
 
 logger = logging.getLogger(__name__)
+
+GROQ_API_KEY = settings.GROQ_API_KEY
 
 
 class DocumentConsumer(AsyncWebsocketConsumer):
@@ -76,13 +79,15 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         state = encode_state_vector(self.ydoc)
         msg = create_sync_step1_message(state)
         await self.send(bytes_data=msg)
+        AI_MODEL = "llama-3.3-70b-versatile"
+        self.spellgrammarcheck = SpellGrammarChecker(GROQ_API_KEY, AI_MODEL)
 
     async def send_message(self, text_data=None, bytes_data=None):
         if text_data:
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    "type": "comment_sync",
+                    "type": "spell_check",
                     "text_data": text_data,
                     "sender_channel": self.channel_name,
                 },
@@ -97,6 +102,10 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     "sender_channel": self.channel_name,
                 },
             )
+
+    async def spell_check(self, event):
+
+        await self.send(text_data=event["text_data"])
 
     async def comment_sync(self, event):
         if event["sender_channel"] == self.channel_name:
@@ -118,7 +127,22 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            await self.send_message(text_data=text_data)
+            if eval(text_data)["type"] in ["SpellCheck", "GrammarCheck"]:
+                ydoc_text = " ".join(self.ydoc.get_array("root"))
+                logger.info(ydoc_text)
+                spell_checked_data = self.spellgrammarcheck.spell_check(ydoc_text)
+                grammar_checked_data = self.spellgrammarcheck.grammar_check(ydoc_text)
+                merged_data = (
+                    "{"
+                    + f'"Spell":{await spell_checked_data},'
+                    + f'"Grammar":{await grammar_checked_data}'
+                    + "}"
+                )
+                await self.send_message(text_data=merged_data)
+
+            else:
+                await self.send_message(text_data=text_data)
+
         if bytes_data:
             await self.send_message(bytes_data=bytes_data)
             update = await self.process_message(bytes_data, self.ydoc)
