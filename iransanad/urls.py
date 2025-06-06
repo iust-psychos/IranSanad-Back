@@ -15,6 +15,7 @@ urlpatterns = [
     path(f'{BASE_URL}/docs/',include('document.urls')),
     path(f'{BASE_URL}/stt/',include('stt.urls')),
     path(f'{BASE_URL}/',include('core.urls')),
+    path('', include('django_prometheus.urls')),
 ]\
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)\
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

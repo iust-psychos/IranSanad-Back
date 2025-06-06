@@ -1,10 +1,11 @@
 from django.db import models
+from django_prometheus.models import ExportModelOperationsMixin
 import uuid
 from .utility import link_generator
 from django.utils import timezone
 
 
-class Document(models.Model):
+class Document(ExportModelOperationsMixin("document"), models.Model):
     ACCESS_LEVELS = {
         4: "Owner",
         3: "Admin",
@@ -38,7 +39,7 @@ class Document(models.Model):
         except DocumentView.DoesNotExist:
             return None
 
-class DocumentView(models.Model):
+class DocumentView(ExportModelOperationsMixin("document_view"), models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
     user = models.ForeignKey("authentication.User", on_delete=models.CASCADE)
     viewed_at = models.DateTimeField(auto_now_add=True)
@@ -47,7 +48,7 @@ class DocumentView(models.Model):
         return f"{self.user.username} viewed {self.document.title} on {self.viewed_at}"
 
 
-class DocumentUpdate(models.Model):
+class DocumentUpdate(ExportModelOperationsMixin("document_update"), models.Model):
     title = models.CharField(max_length=255, null=True, blank=True)
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name="updates"
