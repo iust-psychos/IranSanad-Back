@@ -18,7 +18,6 @@ class Document(ExportModelOperationsMixin("document"), models.Model):
     owner = models.ForeignKey(
         "authentication.User", on_delete=models.SET_NULL, null=True, blank=True
     )
-    content = models.BinaryField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     doc_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -53,6 +52,7 @@ class DocumentUpdate(ExportModelOperationsMixin("document_update"), models.Model
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name="updates"
     )
+    page = models.PositiveIntegerField(default=1)  # Page number for the update
     # for raw updates
     author = models.ForeignKey(
         "authentication.User",
