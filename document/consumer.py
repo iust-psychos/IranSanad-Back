@@ -28,6 +28,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Check if the document UUID is valid
         self.doc_uuid = self.scope["url_route"]["kwargs"].get("doc_uuid")
+        self.page = self.scope["url_route"]["kwargs"].get("page", 1)
         self.user = self.scope["user"]
         if not self.doc_uuid:
             logger.error("Invalid document UUID.")
@@ -54,7 +55,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         document_updates = sync_to_async(
             lambda: list(
-                DocumentUpdate.objects.filter(document=self.document)
+                DocumentUpdate.objects.filter(document=self.document, page=self.page)
                 .order_by("created_at")
                 .all()
             )
@@ -152,6 +153,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     document=self.document,
                     update_data=update,
                     author=self.user,
+                    page=self.page,
                 )
                 await sync_to_async(document_update.save)()
 
