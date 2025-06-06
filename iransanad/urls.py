@@ -13,6 +13,7 @@ urlpatterns = [
     path(f'{BASE_URL}/nbt-admin/', admin.site.urls),
     path(f'{BASE_URL}/auth/',include('authentication.urls')),
     path(f'{BASE_URL}/docs/',include('document.urls')),
+    path(f'{BASE_URL}/stt/',include('stt.urls')),
     path(f'{BASE_URL}/',include('core.urls')),
 ]\
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)\

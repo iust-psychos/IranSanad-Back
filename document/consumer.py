@@ -1,21 +1,35 @@
 import json
 import logging
 import django
+
 django.setup()
 from django.utils import timezone
+from django.conf import settings
 from channels.generic.websocket import AsyncWebsocketConsumer
-from y_py import YDoc, apply_update, encode_state_as_update
+from y_py import YDoc, apply_update, encode_state_as_update, encode_state_vector
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from .models import Document, DocumentUpdate, DocumentView
+from ypy_websocket.yutils import (
+    create_sync_step1_message,
+    create_sync_step2_message,
+    YMessageType,
+    YSyncMessageType,
+    read_message,
+)
+from document.spell_grammar_checker.spell_grammar_checker import SpellGrammarChecker
 
 logger = logging.getLogger(__name__)
+
+GROQ_API_KEY = settings.GROQ_API_KEY
+
 
 class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Check if the document UUID is valid
-        self.doc_uuid = self.scope['url_route']['kwargs'].get('doc_uuid')
-        self.user = self.scope['user']
+        self.doc_uuid = self.scope["url_route"]["kwargs"].get("doc_uuid")
+        self.page = self.scope["url_route"]["kwargs"].get("page", 1)
+        self.user = self.scope["user"]
         if not self.doc_uuid:
             logger.error("Invalid document UUID.")
             await self.close()
@@ -25,24 +39,80 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         except Document.DoesNotExist:
             logger.error(f"Document with UUID {self.doc_uuid} does not exist.")
             await self.close()
-            return        
-        self.room_group_name = f'document_{self.doc_uuid}'
+            return
+        self.room_group_name = f"document_{self.doc_uuid}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
-        # send content of document to client
-        # log the content of the document
-        logger.info(f"Document content: {bytes(self.document.content)}")
-        if self.document.content:
-            await self.send(bytes_data=bytes(self.document.content))
-        logger.info(f"WebSocket connection established for document {self.doc_uuid} from {self.channel_name}")
         self.last_seen = await DocumentView.objects.acreate(
-            document=self.document,
-            user=self.user
+            document=self.document, user=self.user
         )
-        logger.info(f"Document viewed by user: {self.user} for document {self.document.doc_uuid}")
+        logger.info(
+            f"Document viewed by user: {self.user} for document {self.document.doc_uuid}"
+        )
 
-        
+        self.ydoc = YDoc()
+
+        document_updates = sync_to_async(
+            lambda: list(
+                DocumentUpdate.objects.filter(document=self.document, page=self.page)
+                .order_by("created_at")
+                .all()
+            )
+        )
+        document_updates = await document_updates()
+        for document_update in document_updates:
+            update_data = (
+                bytes(document_update.update_data)
+                if isinstance(document_update.update_data, memoryview)
+                else document_update.update_data
+            )
+            if not isinstance(update_data, bytes):
+                logger.error(
+                    f"Invalid update_data type: {type(update_data)}, value: {update_data}"
+                )
+                continue
+            try:
+                apply_update(self.ydoc, update_data)
+            except Exception as e:
+                logger.error(f"Error applying update: {e}")
+
+        state = encode_state_vector(self.ydoc)
+        msg = create_sync_step1_message(state)
+        await self.send(bytes_data=msg)
+        AI_MODEL = "llama-3.3-70b-versatile"
+        self.spellgrammarcheck = SpellGrammarChecker(GROQ_API_KEY, AI_MODEL)
+
+    async def send_message(self, text_data=None, bytes_data=None):
+        if text_data:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "spell_check",
+                    "text_data": text_data,
+                    "sender_channel": self.channel_name,
+                },
+            )
+
+        if bytes_data:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "yjs_update",
+                    "bytes": bytes_data,
+                    "sender_channel": self.channel_name,
+                },
+            )
+
+    async def spell_check(self, event):
+
+        await self.send(text_data=event["text_data"])
+
+    async def comment_sync(self, event):
+        if event["sender_channel"] == self.channel_name:
+            return  # Ignore updates sent by the sender
+
+        await self.send(text_data=event["text_data"])
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -51,58 +121,61 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             self.last_seen.created_at = timezone.now()
             await sync_to_async(self.last_seen.save)()
         else:
-            logger.error(f"DocumentView object not found for user {self.user} and document {self.document.doc_uuid}")
-            await DocumentView.objects.acreate(
-                document=self.document,
-                user=self.user
+            logger.error(
+                f"DocumentView object not found for user {self.user} and document {self.document.doc_uuid}"
             )
-
-        
+            await DocumentView.objects.acreate(document=self.document, user=self.user)
 
     async def receive(self, text_data=None, bytes_data=None):
-        # check if data is ypy support or not
-        if bytes_data is None:
-            logger.error("Received non-Yjs update.")
-            return  # Ignore non-Yjs updates
+        if text_data:
+            if eval(text_data)["type"] in ["SpellCheck", "GrammarCheck"]:
+                ydoc_text = " ".join(self.ydoc.get_array("root"))
+                logger.info(ydoc_text)
+                spell_checked_data = self.spellgrammarcheck.spell_check(ydoc_text)
+                grammar_checked_data = self.spellgrammarcheck.grammar_check(ydoc_text)
+                merged_data = (
+                    "{"
+                    + f'"Spell":{await spell_checked_data},'
+                    + f'"Grammar":{await grammar_checked_data}'
+                    + "}"
+                )
+                await self.send_message(text_data=merged_data)
 
-        # Broadcast to all clients except sender
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'yjs.update',
-                'bytes': bytes_data,
-                'sender_channel': self.channel_name,
-            }
-        )
+            else:
+                await self.send_message(text_data=text_data)
 
-        # Apply update to DB
-        await self.apply_update_to_doc(self.doc_uuid, bytes_data)
+        if bytes_data:
+            await self.send_message(bytes_data=bytes_data)
+            update = await self.process_message(bytes_data, self.ydoc)
+            # Save update to Database
+            if update:
+                document_update = await DocumentUpdate.objects.acreate(
+                    document=self.document,
+                    update_data=update,
+                    author=self.user,
+                    page=self.page,
+                )
+                await sync_to_async(document_update.save)()
+
+    async def process_message(self, message: bytes, ydoc: YDoc):
+        if message[0] == YMessageType.SYNC:
+            message_type = message[1]
+            msg = message[2:]
+            if message_type == YSyncMessageType.SYNC_STEP1:
+                state = read_message(msg)
+                update = encode_state_as_update(ydoc, state)
+                reply = create_sync_step2_message(update)
+                await self.send_message(bytes_data=reply)
+            elif message_type in (
+                YSyncMessageType.SYNC_STEP2,
+                YSyncMessageType.SYNC_UPDATE,
+            ):
+                update = read_message(msg)
+                apply_update(ydoc, update)
+                return update
 
     async def yjs_update(self, event):
-        if event['sender_channel'] == self.channel_name:
-            return  # Ignore updates sent by the sender
+        # if event["sender_channel"] == self.channel_name:
+        #     return  # Ignore updates sent by the sender
 
-        await self.send(bytes_data=event['bytes'])
-
-    @sync_to_async
-    def apply_update_to_doc(self, doc_uuid, update_bytes):
-        try:
-            logger.info(f"Applying update to document {doc_uuid}")
-            logger.info(f"Update bytes: {update_bytes}")
-            document = Document.objects.get(doc_uuid=doc_uuid)
-
-            ydoc = YDoc()
-            if document.content:
-                apply_update(ydoc, document.content)
-            logger.info(f"Applying update to YDoc: {ydoc}")
-            apply_update(ydoc, update_bytes)
-            logger.info(f"YDoc after applying update: {ydoc}")
-            DocumentUpdate.objects.create(document=document, update_data=update_bytes)
-            logger.info(f"Encoded state as update: {encode_state_as_update(ydoc)}")
-            document.content = encode_state_as_update(ydoc)
-            document.save()
-            logger.info(f"Update applied to document {doc_uuid} and saved to DB.")
-        except ObjectDoesNotExist:
-            logger.error(f"Document with UUID {doc_uuid} does not exist.")
-        except Exception as e:
-            logger.error(f"Error applying update to document {doc_uuid}: {e}")
+        await self.send(bytes_data=event["bytes"])

@@ -4,6 +4,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound , NotAcceptable
 from .models import *
 
 User = get_user_model()
@@ -64,6 +65,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(max_length=5,write_only=True)
     password = serializers.CharField(
         style={'input_type': 'password'},
         write_only=True,
@@ -76,18 +78,29 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password2', 'phone_number']
+        fields = ['username', 'email', 'password', 'password2', 'phone_number','code']
 
     def validate(self, attrs):
+        verification = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        code = attrs.get('code')
+        if not verification:
+            raise NotFound({'message':('متاسفانه هیچ کدی به این ایمیل ارسال نشده')})
+        if verification.is_expired():
+            raise NotAcceptable({'message':('متاسفانه کد تایید منقضی شده')})
+        if not verification.is_valid(code):
+            raise NotAcceptable({'message':('کد تایید وارد شده اشتباه است')})
         password = attrs.get('password')
         password2 = attrs.pop('password2')
         if password != password2:
             raise serializers.ValidationError(
-                ('رمز عبور و تأیید آن مطابقت ندارند.')
+                {'message':('رمز عبور و تأیید آن مطابقت ندارند.')}
             )
+        verification.is_verified =True
+        verification.save()
         return attrs
 
     def create(self, validated_data):
+        validated_data.pop('code')
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -98,7 +111,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
 
-class UserInfoSerilizer(serializers.ModelSerializer):
+class UserInfoSerializer(serializers.ModelSerializer):
     profile_image = serializers.SerializerMethodField("get_profile_image")
 
     class Meta:
@@ -197,8 +210,9 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class EmailVerificationSerializer(serializers.Serializer):
-    code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
+    code = serializers.CharField(max_length=5)
+    
 
     def validate(self, attrs):
         user = User.objects.filter(email=attrs['email']).first()
@@ -240,8 +254,11 @@ class ForgetPasswordSerializer(serializers.Serializer):
         if not user:
             raise serializers.ValidationError({"email": ("ایمیل ارائه شده نامعتبر است.")})
         return super().validate(attrs)
-
-
+    
+    class Meta:
+        read_only_fields = ()
+    
+    
 class ForgetPasswordVerificationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=5)
     email = serializers.EmailField()
@@ -265,4 +282,58 @@ class ForgetPasswordVerificationSerializer(serializers.Serializer):
         user = User.objects.get(email=self.validated_data['email'])
         user.set_password(self.validated_data['new_password'])
         user.save()
+        
         return user
+class UserLookupSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    user_id = serializers.IntegerField(read_only=True)
+    
+    def validate(self, attrs):
+        if not any([attrs.get('username'), attrs.get('email')]):
+            raise serializers.ValidationError("باید نام کاربری یا آدرس ایمیل ارائه شود")
+        
+        if attrs.get('username',None):
+            user = User.objects.filter(username=attrs['username']).first()
+        elif attrs.get('email',None):
+            user = User.objects.filter(email=attrs['email']).first()
+        else:
+            user = None    
+        if not user:
+            raise NotFound("کاربر یافت نشد")
+        
+        attrs['user'] = user
+        return attrs
+
+    def to_representation(self, instance):
+        return {
+            'user_id': instance.id,
+            'username': instance.username,
+            'email_address': instance.email,
+        }
+    
+class SignupEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(write_only = True)
+    username = serializers.CharField(write_only = True)
+    def validate(self, attrs):
+        if User.objects.filter(email=attrs.get('email')).exists():
+            raise NotAcceptable({"message": ("کاربری با این ایمیل وجود دارد ")})
+        if User.objects.filter(username=attrs.get('username')).exists():
+            raise NotAcceptable({"message": ("کاربری با این نام وجود دارد ")})
+        validation = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        if validation and not validation.is_expired():
+            raise NotAcceptable({"message": ("کد تایید قبلا به این ایمیل ارسال شده")})
+        elif validation and validation.is_verified :
+            raise NotAcceptable({"message": ("ایمیل ارائه شده قبلاً تأیید شده است")})
+        return super().validate(attrs)
+    
+class SignupResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, attrs):
+        validation = SignupEmailVerification.objects.filter(email=attrs.get('email')).first()
+        if not validation:
+            raise serializers.ValidationError({"message": ("به ایمیل داده شده ایمیلی داده نشده است")})
+        if validation.is_verified:
+            raise serializers.ValidationError({"message": ("ایمیل ارائه شده قبلاً تأیید شده است.")})
+        return super().validate(attrs)
