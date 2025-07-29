@@ -1,20 +1,12 @@
-import pytest
-from unittest.mock import Mock
 from django.test import SimpleTestCase
 from django.db import models
 from django.contrib.auth import get_user_model
-from model_bakery import baker
 from document.models import *
 
 User = get_user_model()
 
 
 class TestDocumentDefinition(SimpleTestCase):
-    # def test_document__str__(self):
-    #     user = User()
-    #     document = Document(title="new title", owner=user)
-    #     self.assertEqual(str(document), "new title")
-
     def test_document_title_max_length(self):
         max_length = Document._meta.get_field("title").max_length
         self.assertEqual(max_length, 255)
