@@ -200,6 +200,7 @@ class CommentViewSet(ModelViewSet):
 
     serializer_class = CommentSerializer
     lookup_field = "id"
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         doc_uuid = self.kwargs["doc_uuid"]
@@ -221,7 +222,7 @@ class CommentReplyViewSet(
     mixins.DestroyModelMixin,
     GenericViewSet,
 ):
-
+    permission_classes = [IsAuthenticated]
     queryset = CommentReply.objects.all()
     serializer_class = CommentReplySerializer
 
