@@ -108,7 +108,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         await self.send(text_data=event["text_data"])
 
-    async def comment_sync(self, event):
+    async def comment_commentreply_sync(self, event):
         if event["sender_channel"] == self.channel_name:
             return  # Ignore updates sent by the sender
 
@@ -140,7 +140,17 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     + "}"
                 )
                 await self.send_message(type="spell_check", text_data=merged_data)
-
+            elif eval(text_data)["type"] in [
+                "comment_created",
+                "comment_updated",
+                "comment_deleted",
+                "reply_created",
+                "reply_updated",
+                "reply_deleted",
+            ]:
+                await self.send_message(
+                    type="comment_commentreply_sync", text_data=text_data
+                )
             else:
                 await self.send_message(type="default_send", text_data=text_data)
 
