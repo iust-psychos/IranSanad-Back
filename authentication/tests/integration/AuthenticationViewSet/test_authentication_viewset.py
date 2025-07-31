@@ -672,3 +672,74 @@ class TestSignupEmailVerificationEndpoint:
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.data["message"] == "ایمیل تایید ایمیل کاربر ارسال شد"
+
+
+@pytest.mark.django_db
+class TestUserLookupEndpoint:
+    def test_unauthenticated_user_return_401(self, api_client, base_auth_url):
+        user = baker.make(User, username="username", email="user@example.com")
+        data = {"email": "user@example.com", "username": "username"}
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert User.objects.filter(
+            username="username", email="user@example.com"
+        ).exists()
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_no_username_no_email_return_400(self, api_client, base_auth_url):
+        user = baker.make(User, username="username", email="user@example.com")
+        api_client.force_authenticate(user=user)
+        data = {}
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_provide_email_no_user_found_return_404(self, api_client, base_auth_url):
+        user = baker.make(User, username="username", email="user@example.com")
+        api_client.force_authenticate(user=user)
+        data = {"email": "user_2@example.com"}
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_provide_username_no_user_found_return_404(self, api_client, base_auth_url):
+        user = baker.make(User, username="username", email="user@example.com")
+        api_client.force_authenticate(user=user)
+        data = {"username": "username2"}
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_provide_email_username_no_user_found_return_404(
+        self, api_client, base_auth_url
+    ):
+        user = baker.make(User, username="username", email="user@example.com")
+        api_client.force_authenticate(user=user)
+        data = {"username": "username_2", "email": "user2@example.com"}
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_provide_email_user_exist_return_200(self, api_client, base_auth_url):
+        user1 = baker.make(User, username="username1", email="user1@example.com")
+        user2 = baker.make(User, username="username2", email="user2@example.com")
+        api_client.force_authenticate(user=user1)
+        data = {"email": "user2@example.com"}
+
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == user2.username
+        assert response.data["email_address"] == user2.email
+
+    def test_provide_username_user_exist_return_200(self, api_client, base_auth_url):
+        user1 = baker.make(User, username="username1", email="user1@example.com")
+        user2 = baker.make(User, username="username2", email="user2@example.com")
+        api_client.force_authenticate(user=user1)
+        data = {"username": "username2"}
+
+        response = api_client.post(f"{base_auth_url}user_lookup/", data=data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["username"] == user2.username
+        assert response.data["email_address"] == user2.email
