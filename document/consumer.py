@@ -83,12 +83,12 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         AI_MODEL = "llama-3.3-70b-versatile"
         self.spellgrammarcheck = SpellGrammarChecker(GROQ_API_KEY, AI_MODEL)
 
-    async def send_message(self, text_data=None, bytes_data=None):
+    async def send_message(self, type: str, text_data=None, bytes_data=None):
         if text_data:
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    "type": "spell_check",
+                    "type": type,
                     "text_data": text_data,
                     "sender_channel": self.channel_name,
                 },
@@ -98,7 +98,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    "type": "yjs_update",
+                    "type": type,
                     "bytes": bytes_data,
                     "sender_channel": self.channel_name,
                 },
@@ -108,7 +108,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
 
         await self.send(text_data=event["text_data"])
 
-    async def comment_sync(self, event):
+    async def comment_commentreply_sync(self, event):
         if event["sender_channel"] == self.channel_name:
             return  # Ignore updates sent by the sender
 
@@ -139,13 +139,23 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     + f'"Grammar":{await grammar_checked_data}'
                     + "}"
                 )
-                await self.send_message(text_data=merged_data)
-
+                await self.send_message(type="spell_check", text_data=merged_data)
+            elif eval(text_data)["type"] in [
+                "comment_created",
+                "comment_updated",
+                "comment_deleted",
+                "reply_created",
+                "reply_updated",
+                "reply_deleted",
+            ]:
+                await self.send_message(
+                    type="comment_commentreply_sync", text_data=text_data
+                )
             else:
-                await self.send_message(text_data=text_data)
+                await self.send_message(type="default_send", text_data=text_data)
 
         if bytes_data:
-            await self.send_message(bytes_data=bytes_data)
+            await self.send_message(type="default_send", bytes_data=bytes_data)
             update = await self.process_message(bytes_data, self.ydoc)
             # Save update to Database
             if update:
@@ -165,7 +175,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 state = read_message(msg)
                 update = encode_state_as_update(ydoc, state)
                 reply = create_sync_step2_message(update)
-                await self.send_message(bytes_data=reply)
+                await self.send_message(type="yjs_update", bytes_data=reply)
             elif message_type in (
                 YSyncMessageType.SYNC_STEP2,
                 YSyncMessageType.SYNC_UPDATE,
@@ -179,3 +189,9 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         #     return  # Ignore updates sent by the sender
 
         await self.send(bytes_data=event["bytes"])
+
+    async def default_send(self, event):
+        if event["text_data"] is not None:
+            await self.send(text_data=event["text_data"])
+        elif event["bytes"] is not None:
+            await self.send(bytes_data=event["bytes"])
