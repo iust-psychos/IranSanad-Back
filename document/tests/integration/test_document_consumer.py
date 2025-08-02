@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 import uuid
+import random
 from unittest.mock import Mock
 from django.contrib.auth import get_user_model
 from iransanad.asgi import application
@@ -26,11 +27,6 @@ logger = getLogger()
 User = get_user_model()
 
 
-# @pytest.fixture
-# def user():
-#     return User.objects.create(username="username")
-
-
 def get_yjs_update_bytes(initial_text="Hello"):
     ydoc = YDoc()
     with ydoc.begin_transaction() as txn:
@@ -49,6 +45,7 @@ class TestDocumentConsumer:
         communicator = WebsocketCommunicator(
             application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token}"
         )
+        communicator.scope["user"] = user
         connected, _ = await communicator.connect()
         assert connected
         await communicator.disconnect()
@@ -62,27 +59,33 @@ class TestDocumentConsumer:
         connected, _ = await communicator.connect()
         assert not connected
 
-    async def test_two_users_access(self):
-        user1 = await User.objects.acreate(username="user1", email="user1@example.com")
-        user2 = await User.objects.acreate(username="user2", email="user2@example.com")
-        token1 = str(await database_sync_to_async(AccessToken.for_user)(user1))
-        token2 = str(await database_sync_to_async(AccessToken.for_user)(user2))
 
-        doc = await Document.objects.acreate(owner=user1)
-        communicator1 = WebsocketCommunicator(
-            application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token1}"
-        )
-        # communicator1.scope["user"] = user1
-        connected1, _ = await communicator1.connect()
-        assert connected1
-        communicator2 = WebsocketCommunicator(
-            application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token2}"
-        )
-        # communicator2.scope["user"] = user2
-        connected2, _ = await communicator2.connect()
-        assert connected2
-        await communicator1.disconnect()
-        await communicator2.disconnect()
+    async def test_multiple_user_access(self):
+        count = random.randint(3, 10)
+        users = await database_sync_to_async(baker.make)(User, _quantity=count)
+        tokens = []
+        for user in users:
+            token = str(await database_sync_to_async(AccessToken.for_user)(user))
+            tokens.append(token)
+
+        doc = await Document.objects.acreate(owner=users[0])
+        communicators = []
+        for user, token in zip(users, tokens):
+            communicator = WebsocketCommunicator(
+                application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token}"
+            )
+            communicator.scope["user"] = user
+            communicators.append(communicator)
+
+        connected = []
+        for communicator in communicators:
+            conn, _ = await communicator.connect()
+            connected.append(conn)
+            assert conn
+            await asyncio.sleep(2)  # Allow some time for the connection to establish
+        
+        for communicator in communicators:
+            await communicator.disconnect()
 
     async def test_update_received_when_user_joins(self):
         # Create two users and their tokens
@@ -103,6 +106,7 @@ class TestDocumentConsumer:
         communicator1 = WebsocketCommunicator(
             application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token}"
         )
+        communicator1.scope["user"] = user
         connected1, _ = await communicator1.connect()
         assert connected1
         asyncio.sleep(2)
@@ -162,6 +166,8 @@ class TestDocumentConsumer:
         communicator2 = WebsocketCommunicator(
             application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token2}"
         )
+        communicator1.scope["user"] = user1
+        communicator2.scope["user"] = user2
         connected1, _ = await communicator1.connect()
         connected2, _ = await communicator2.connect()
         assert connected1 and connected2
@@ -199,6 +205,8 @@ class TestDocumentConsumer:
         communicator2 = WebsocketCommunicator(
             application, f"/ws/docs/{doc.doc_uuid}/1/?Authorization={token2}"
         )
+        communicator1.scope["user"] = user1
+        communicator2.scope["user"] = user2
 
         connected1, _ = await communicator1.connect()
         connected2, _ = await communicator2.connect()
