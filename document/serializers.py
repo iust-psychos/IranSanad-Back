@@ -364,7 +364,6 @@ class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
             "id",
             "title",
             "document",
-            "page",
             "authors",
             "processed",
             "is_compacted",
@@ -375,7 +374,6 @@ class CompactedDocumentUpdateSerializerRetrieve(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "document",
-            "page",
             "authors",
             "processed",
             "is_compacted",

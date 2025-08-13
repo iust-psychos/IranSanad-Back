@@ -130,7 +130,6 @@ def process_session(session):
             is_compacted=True,
             processed=True,
             created_at= session[-1].created_at + timedelta(seconds=1),
-            page = session[0].page,
         )
         compacted.authors.set(authors)
         compacted.save()
@@ -149,15 +148,11 @@ def compact_document_updates():
     updates = (
         DocumentUpdate.objects
         .filter(processed=False, is_compacted=False)
-        .order_by('document_id', 'page', 'created_at')
+        .order_by('document_id', 'created_at')
     )
     logger.info(f"[][][] Processing {len(updates)} document updates into sessions.")
     for doc_id, doc_updates in groupby(updates, key=lambda u: u.document_id):
         doc_updates_list = list(doc_updates)
-        # Group by page within each document
-        doc_updates_list.sort(key=lambda u: u.page)
-        for page, page_updates in groupby(doc_updates_list, key=lambda u: u.page):
-            page_updates_list = list(page_updates)
-            logger.info(f"Processing document ID: {doc_id}, page: {page} with {len(page_updates_list)} updates.")
-            for session in split_updates_by_time_gap(page_updates_list):
-                process_session(session)
+        logger.info(f"Processing document ID: {doc_id} with {len(doc_updates_list)} updates.")
+        for session in split_updates_by_time_gap(doc_updates_list):
+            process_session(session)

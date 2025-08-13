@@ -51,7 +51,6 @@ class DocumentUpdate(models.Model):
     document = models.ForeignKey(
         Document, on_delete=models.CASCADE, related_name="updates"
     )
-    page = models.PositiveIntegerField(default=1)  # Page number for the update
     # for raw updates
     author = models.ForeignKey(
         "authentication.User",
