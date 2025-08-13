@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     # Third party apps
     "rest_framework",
     "drf_yasg",
+    'axes',
     # Local apps
     'core',
     'authentication',
@@ -56,6 +57,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = "iransanad.urls"
@@ -90,6 +92,13 @@ DATABASES = {
     }
 }
 
+AUTHENTICATION_BACKENDS = [
+    # AxesStandaloneBackend should be the first backend in the AUTHENTICATION_BACKENDS list.
+    'axes.backends.AxesStandaloneBackend',
+
+    # Django ModelBackend is the default authentication backend.
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
