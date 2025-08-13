@@ -37,7 +37,7 @@ class AuthenticationViewSet(GenericViewSet):
             return [IsAuthenticated()]
     
 
-    @method_decorator(ratelimit(key='ip', rate='100/h', method='POST', block=True), name='login')
+    @method_decorator(ratelimit(key='ip', rate='100/h', method='POST', block=True))
     @action(detail=False, methods=['POST'])
     def login(self, request):
         serializer = self.get_serializer(data=request.data)
