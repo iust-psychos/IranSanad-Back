@@ -5,6 +5,8 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from .serializers import *
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 
 
 logger = logging.getLogger(__name__)
@@ -35,12 +37,14 @@ class AuthenticationViewSet(GenericViewSet):
             return [IsAuthenticated()]
     
 
+    @method_decorator(ratelimit(key='ip', rate='100/h', method='POST', block=True))
     @action(detail=False, methods=['POST'])
     def login(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+    @method_decorator(ratelimit(key='ip', rate='25/h', method='POST', block=True))
     @action(detail=False, methods=['POST'])
     def register(self, request):
         serializer = self.get_serializer(data=request.data)
