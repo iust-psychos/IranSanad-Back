@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     # Third party apps
     "rest_framework",
     "drf_yasg",
-    'axes',
+    "axes",
     # Local apps
     'core',
     'authentication',
