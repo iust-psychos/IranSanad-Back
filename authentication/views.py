@@ -44,7 +44,7 @@ class AuthenticationViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @method_decorator(ratelimit(key='ip', rate='25/h', method='POST', block=True), name='register')
+    @method_decorator(ratelimit(key='ip', rate='25/h', method='POST', block=True))
     @action(detail=False, methods=['POST'])
     def register(self, request):
         serializer = self.get_serializer(data=request.data)
